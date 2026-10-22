@@ -35,7 +35,7 @@ fair-pair/
 
 ## Technical requirements
 
-1. **Pairing algorithm:** Use bitmask dynamic programming with memoization to find globally optimal pairings. The pairing logic must prioritize: avoid rematches first, then minimize ranking gaps, then prefer BYE-related fairness when needed.
+1. **Pairing algorithm:** Use an exact minimum-cost perfect matching, implemented with bitmask DP and a hierarchical cost encoding the true priority order. The pairing logic must prioritize: avoid rematches first, then minimize ranking gaps, then prefer BYE-related fairness when needed.
 2. **Persistent state and backward navigation:** Persist the complete tournament state and history in `localStorage`, allowing navigation and corrections at any previous step without data loss.
 3. **Automated tests:** Use Node.js built-in test runner (`node --test`) to validate pairing correctness, especially that no avoidable rematches occur and that edge cases are handled correctly.
 
