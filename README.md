@@ -12,6 +12,7 @@
 - **Automatic persistence:** The complete tournament state is saved to `localStorage` after every change, and the app resumes on reload. The organizer can also reset the current tournament with confirmation.
 - **URL-based setup:** Query parameters can prepopulate players (in the specified order) and setup settings, such as `?player=Alice&player=Bob&player=Carol&bye=lowest`. These parameters are treated as initial setup only and are never treated as live shared state. If a tournament is already saved, the URL parameters are ignored.
 - **Friendly interface:** The app includes responsive, intuitive screens for setup, pairings, results, and standings, with clear navigation, simple controls, and confirmation prompts for destructive actions.
+- *translation*: internationalization is support. English is the default language, french is supported. a toggle in the app bar allows switching between languages. the default language is set thanks to the browser's language settings.
 
 ## Technology
 
