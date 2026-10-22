@@ -1,0 +1,11 @@
+body {
+  background: #f8f9fa;
+}
+
+#ranking-list .draggable-player.dragging {
+  opacity: 0.5;
+}
+
+#ranking-list .draggable-player {
+  cursor: grab;
+}

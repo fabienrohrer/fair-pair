@@ -34,6 +34,16 @@ fair-pair/
     └── pairing.js     # Pure pairing and BYE-selection algorithms
 ```
 
+## Running tests
+
+This project uses the built-in Node.js test runner.
+
+```bash
+npm test
+```
+
+The tests focus on pairing correctness and key edge cases (avoidable rematches, odd player counts with BYE fairness, exhausted unique opponents, and standings behavior).
+
 ## Technical requirements
 
 1. **Pairing algorithm:** Use an exact minimum-cost perfect matching, implemented with bitmask DP and a hierarchical cost encoding the true priority order. The pairing logic must prioritize: avoid rematches first, then minimize ranking gaps, then prefer BYE-related fairness when needed.
