@@ -1,0 +1,513 @@
+import { flattenRankingGroups } from "../pairing.js";
+import { normalizeRankingGroups } from "../tournament-state.js";
+import { PRIORITY_ORDERS } from "./constants.js";
+import { escapeHtml } from "./utils.js";
+
+function getPriorityLabel(priorityOrder, language, t) {
+  const labels = priorityOrder.map((value) => {
+    if (value === "avoid_rematch") {
+      return language === "fr" ? "éviter les rematches" : "avoid rematch";
+    }
+    if (value === "minimize_gap") {
+      return language === "fr" ? "minimiser l'écart de rang" : "minimize ranking gap";
+    }
+    return language === "fr" ? "équité BYE" : "bye fairness";
+  });
+
+  const combined = labels.join(" → ");
+  const map = {
+    "avoid rematch → minimize ranking gap → bye fairness": "priorityAvoidRematch",
+    "avoid rematch → bye fairness → minimize ranking gap": "priorityAvoidRematchByeFirst",
+    "minimize ranking gap → avoid rematch → bye fairness": "priorityGapFirst",
+    "minimize ranking gap → bye fairness → avoid rematch": "priorityGapByeFirst",
+    "bye fairness → avoid rematch → minimize ranking gap": "priorityByeFirst",
+    "bye fairness → minimize ranking gap → avoid rematch": "priorityByeGapFirst",
+    "éviter les rematches → minimiser l'écart de rang → équité BYE": "priorityAvoidRematch",
+    "éviter les rematches → équité BYE → minimiser l'écart de rang": "priorityAvoidRematchByeFirst",
+    "minimiser l'écart de rang → éviter les rematches → équité BYE": "priorityGapFirst",
+    "minimiser l'écart de rang → équité BYE → éviter les rematches": "priorityGapByeFirst",
+    "équité BYE → éviter les rematches → minimiser l'écart de rang": "priorityByeFirst",
+    "équité BYE → minimiser l'écart de rang → éviter les rematches": "priorityByeGapFirst",
+  };
+
+  const translatedKey = map[combined];
+  if (!translatedKey) {
+    return combined;
+  }
+
+  return t(translatedKey);
+}
+
+export function currentPlayerIds(tournament) {
+  return tournament.players.map((player) => player.id);
+}
+
+function getPairingAssignedIds(draft) {
+  const assigned = [];
+  for (const table of draft.pairing.tables) {
+    if (table.a) {
+      assigned.push(table.a);
+    }
+    if (table.b) {
+      assigned.push(table.b);
+    }
+  }
+  if (draft.pairing.byePlayerId) {
+    assigned.push(draft.pairing.byePlayerId);
+  }
+  return assigned;
+}
+
+function getPairingUnassignedIds(tournament) {
+  const draft = tournament.currentRoundDraft;
+  const assignedSet = new Set(getPairingAssignedIds(draft));
+  return currentPlayerIds(tournament).filter((id) => !assignedSet.has(id));
+}
+
+function getPlayerColorStyle(playerId) {
+  const safe = `${playerId}`;
+  let hash = 0;
+  for (let index = 0; index < safe.length; index += 1) {
+    hash = safe.charCodeAt(index) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  const start = (hue + 18) % 360;
+  const end = (hue + 86) % 360;
+  return {
+    background: `linear-gradient(135deg, hsl(${hue} 80% 62%) 0%, hsl(${start} 80% 68%) 100%)`,
+    borderColor: `hsl(${end} 70% 60%)`,
+    boxShadow: `0 0.35rem 0.8rem hsl(${hue} 80% 55% / 25%)`,
+  };
+}
+
+function renderPlayerChip(tournament, playerId, dragType, origin, getPlayerName) {
+  const palette = getPlayerColorStyle(playerId);
+  return `
+    <button
+      type="button"
+      class="player-chip"
+      draggable="true"
+      data-drag-type="${dragType}"
+      data-player-id="${escapeHtml(playerId)}"
+      data-origin="${escapeHtml(origin)}"
+      style="background: ${palette.background}; border-color: ${palette.borderColor}; box-shadow: ${palette.boxShadow};"
+    >
+      ${escapeHtml(getPlayerName(tournament, playerId))}
+    </button>
+  `;
+}
+
+export function renderAppBar({ t, state }) {
+  return `
+    <nav class="navbar navbar-expand-lg fairpair-appbar px-3 px-md-4 py-3 mb-4">
+      <div class="container-fluid px-0">
+        <div class="d-flex align-items-center justify-content-between w-100 gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <img class="brand-logo appbar-logo" src="./fair-pair-logo.svg" alt="Fair Pair logo" />
+          </div>
+          <div class="d-flex align-items-center gap-2 ms-auto">
+            <i class="bi bi-globe2 lang-icon" aria-hidden="true"></i>
+            <div class="lang-switcher" role="group" aria-label="${t("language")}">
+              <button type="button" class="lang-btn ${state.language === "en" ? "active" : ""}" data-lang="en">EN</button>
+              <button type="button" class="lang-btn ${state.language === "fr" ? "active" : ""}" data-lang="fr">FR</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+  `;
+}
+
+export function renderHomeView({ state, t }) {
+  const cards = state.tournaments
+    .map((tournament) => {
+      const selected = tournament.id === state.selectedTournamentId;
+      const footer = selected
+        ? `
+          <div class="card-footer border-top-0 pt-0">
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-primary open-tournament" data-id="${escapeHtml(
+                tournament.id
+              )}">${t("openTournament")}</button>
+              <button type="button" class="btn btn-sm btn-outline-danger delete-tournament" data-id="${escapeHtml(
+                tournament.id
+              )}">${t("deleteTournament")}</button>
+            </div>
+          </div>
+        `
+        : "";
+      return `
+        <div class="col-12 col-md-6 col-xl-4">
+          <div class="card h-100 tournament-tile ${selected ? "tournament-tile-selected" : ""}">
+            <button class="card-body text-start tournament-tile-select" type="button" data-id="${escapeHtml(
+              tournament.id
+            )}">
+              <h3 class="h6 mb-2">${escapeHtml(tournament.name)}</h3>
+              <p class="small text-muted mb-1">${t("playersCount")}: ${tournament.players.length}</p>
+              <p class="small text-muted mb-0">${t("roundsCount")}: ${tournament.rounds.length}</p>
+            </button>
+            ${footer}
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  return `
+    <section>
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h4 mb-0">${t("homeTitle")}</h1>
+        <div class="d-flex gap-2">
+          <button id="add-tournament" class="btn btn-primary">+ ${t("addTournament")}</button>
+          <button id="reset-all" class="btn btn-outline-danger">${t("resetAll")}</button>
+        </div>
+      </div>
+      ${
+        cards
+          ? `<div class="row g-3">${cards}</div>`
+          : `<div class="alert alert-light border">${t("noTournamentsYet")}</div>`
+      }
+    </section>
+  `;
+}
+
+export function renderSetupView({ uiState, getTournamentById, t }) {
+  const isEdit = uiState.setupMode === "edit";
+  const tournament = isEdit ? getTournamentById(uiState.setupTournamentId) : null;
+  const name = tournament?.name || "";
+  const playersText = tournament ? tournament.players.map((player) => player.name).join("\n") : "";
+  return `
+    <section>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">${isEdit ? t("setupTitleEdit") : t("setupTitleCreate")}</h1>
+        <button id="cancel-setup" class="btn btn-outline-secondary">${t("cancel")}</button>
+      </div>
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <form id="setup-form">
+            <div class="mb-3">
+              <label for="tournament-name" class="form-label">${t("tournamentName")}</label>
+              <input id="tournament-name" class="form-control" value="${escapeHtml(name)}" required />
+            </div>
+            <div class="mb-3">
+              <label for="players-input" class="form-label">${t("players")}</label>
+              <textarea id="players-input" class="form-control" rows="8" required>${escapeHtml(
+                playersText
+              )}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">${
+              isEdit ? t("updateTournament") : t("createTournament")
+            }</button>
+          </form>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderRoundHistory(tournament, t, getPlayerName) {
+  if (tournament.rounds.length === 0) {
+    return "";
+  }
+  const rows = tournament.rounds
+    .map((round, index) => {
+      const matchesText = round.matches
+        .map((match) => `${getPlayerName(tournament, match.a)} vs ${getPlayerName(tournament, match.b)}`)
+        .join(" · ");
+      const byeText = round.byePlayerId
+        ? ` — ${t("byeSlot")}: ${getPlayerName(tournament, round.byePlayerId)}`
+        : "";
+      return `<li class="list-group-item">#${index + 1} — ${escapeHtml(matchesText + byeText)}</li>`;
+    })
+    .join("");
+  return `
+    <div class="card shadow-sm mt-4">
+      <div class="card-body">
+        <h3 class="h6 mb-3">${t("roundHistory")}</h3>
+        <ul class="list-group">${rows}</ul>
+      </div>
+    </div>
+  `;
+}
+
+function renderRoundStageHeader(tournament, phase, t) {
+  const roundNumber = tournament.rounds.length + 1;
+  const stepLabel = phase === "ranking" ? t("stepRanking") : t("stepPairing");
+
+  return `
+    <div class="round-stage-banner mt-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+          <div class="round-stage-kicker text-uppercase">${t("currentRound")}</div>
+          <h2 class="round-stage-title mb-0">#${roundNumber} — ${stepLabel}</h2>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderRankingSnapshot(tournament, t, getPlayerName) {
+  const rows = tournament.rankingGroups
+    .filter((group) => group.length > 0)
+    .map((group, index) => {
+      const players = group.map((playerId) => escapeHtml(getPlayerName(tournament, playerId))).join(", ");
+      return `<li class="list-group-item"><strong>${index + 1}.</strong> ${players}</li>`;
+    })
+    .join("");
+  return `
+    <div class="card shadow-sm mt-4">
+      <div class="card-body">
+        <h3 class="h6 mb-3">${t("rankingViewTitle")}</h3>
+        <ul class="list-group">${rows}</ul>
+      </div>
+    </div>
+  `;
+}
+
+function renderPairingDraft(tournament, state, t, getPlayerName) {
+  const draft = tournament.currentRoundDraft;
+  const unassigned = getPairingUnassignedIds(tournament);
+  const byeEnabled = tournament.players.length % 2 === 1;
+  const priorityValue = draft.autoOptions.priorityOrder.join("|");
+  const isAutomaticMode = draft.autoOptions.mode === "automatic";
+
+  const tables = draft.pairing.tables
+    .map((table, index) => {
+      const aContent = table.a
+        ? renderPlayerChip(tournament, table.a, "pairing", `table-${index}-a`, getPlayerName)
+        : `<div class="drop-empty">${t("dropPlayer")}</div>`;
+      const bContent = table.b
+        ? renderPlayerChip(tournament, table.b, "pairing", `table-${index}-b`, getPlayerName)
+        : `<div class="drop-empty">${t("dropPlayer")}</div>`;
+
+      return `
+        <div class="card mb-3">
+          <div class="card-body">
+            <h4 class="h6 mb-3">${t("tables")} ${table.tableNumber}</h4>
+            <div class="pairing-slots">
+              <div class="pairing-drop-zone" data-drop-type="slot" data-table-index="${index}" data-slot="a">${aContent}</div>
+              <div class="pairing-drop-zone" data-drop-type="slot" data-table-index="${index}" data-slot="b">${bContent}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  const byeContent = draft.pairing.byePlayerId
+    ? renderPlayerChip(tournament, draft.pairing.byePlayerId, "pairing", "bye", getPlayerName)
+    : `<div class="drop-empty">${t("dropPlayer")}</div>`;
+
+  const poolContent =
+    unassigned
+      .map((playerId) => renderPlayerChip(tournament, playerId, "pairing", "pool", getPlayerName))
+      .join("") || `<div class="text-muted small">${t("dropPlayer")}</div>`;
+
+  const priorityOptions = PRIORITY_ORDERS.map(
+    (order) =>
+      `<option value="${order.join("|")}" ${
+        order.join("|") === priorityValue ? "selected" : ""
+      }>${escapeHtml(getPriorityLabel(order, state.language, t))}</option>`
+  ).join("");
+
+  const automaticSettings = isAutomaticMode
+    ? `
+      <div class="row g-2">
+        <div class="col-12 col-md-3">
+          <label class="form-label">${t("byeStrategy")}</label>
+          <select id="auto-bye-strategy" class="form-select">
+            <option value="worst" ${draft.autoOptions.byeStrategy === "worst" ? "selected" : ""}>${t(
+              "byeWorst"
+            )}</option>
+            <option value="random" ${draft.autoOptions.byeStrategy === "random" ? "selected" : ""}>${t(
+              "byeRandom"
+            )}</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label">${t("priorityOrder")}</label>
+          <select id="auto-priority-order" class="form-select">${priorityOptions}</select>
+        </div>
+      </div>
+    `
+    : "";
+
+  return `
+    ${renderRoundStageHeader(tournament, "pairing", t)}
+    <div class="card shadow-sm mt-3">
+      <div class="card-body">
+        <h3 class="h5 mb-3">${t("pairingViewTitle")}</h3>
+        <div class="card mb-3 player-bank">
+          <div class="card-body pairing-drop-zone player-bank-zone" data-drop-type="pool">
+            <h4 class="h6 mb-3">${t("playerPool")}</h4>
+            <div class="player-chip-list">${poolContent}</div>
+          </div>
+        </div>
+        ${tables}
+        ${
+          byeEnabled
+            ? `<div class="card mb-3">
+                <div class="card-body pairing-drop-zone" data-drop-type="bye">
+                  <h4 class="h6 mb-3">${t("byeSlot")}</h4>
+                  ${byeContent}
+                </div>
+              </div>`
+            : ""
+        }
+
+        <div class="card mt-4 auto-pairing-panel">
+          <div class="card-body">
+            <h4 class="h6 mb-3">${t("automaticPairing")}</h4>
+            <div class="row g-2">
+              <div class="col-12 col-md-3">
+                <label class="form-label">${t("mode")}</label>
+                <select id="auto-mode" class="form-select">
+                  <option value="automatic" ${draft.autoOptions.mode === "automatic" ? "selected" : ""}>${t(
+                    "automatic"
+                  )}</option>
+                  <option value="random" ${draft.autoOptions.mode === "random" ? "selected" : ""}>${t(
+                    "random"
+                  )}</option>
+                </select>
+              </div>
+            </div>
+            ${automaticSettings}
+            <div class="d-flex gap-2 mt-3">
+              <button type="button" id="try-auto-pairing" class="btn btn-outline-primary">${t(
+                "tryAutoPairing"
+              )}</button>
+              <button type="button" id="clear-pairing" class="btn btn-outline-secondary">${t(
+                "clearPairing"
+              )}</button>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <button type="button" id="back-to-tournament" class="btn btn-outline-secondary">${t(
+            "backToTournament"
+          )}</button>
+          <button type="button" id="start-round" class="btn btn-primary">${t("startRound")}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderRankingDraft(tournament, t, getPlayerName) {
+  const draft = tournament.currentRoundDraft;
+  const normalized = normalizeRankingGroups(draft.rankingGroups, currentPlayerIds(tournament));
+  while (normalized.length < tournament.players.length) {
+    normalized.push([]);
+  }
+  draft.rankingGroups = normalized;
+
+  const allRanked = new Set(flattenRankingGroups(draft.rankingGroups));
+  const unranked = currentPlayerIds(tournament).filter((playerId) => !allRanked.has(playerId));
+
+  const rows = draft.rankingGroups
+    .map((group, index) => {
+      const players = group
+        .map((playerId) => renderPlayerChip(tournament, playerId, "ranking", `rank-${index}`, getPlayerName))
+        .join("");
+      return `
+        <li class="list-group-item ranking-drop-zone" data-rank-index="${index}">
+          <div class="d-flex gap-2 align-items-start">
+            <strong class="rank-label">${index + 1}.</strong>
+            <div class="player-chip-list flex-grow-1">${players || `<span class="drop-empty">${t("dropPlayer")}</span>`}</div>
+          </div>
+        </li>
+      `;
+    })
+    .join("");
+
+  return `
+    ${renderRoundStageHeader(tournament, "ranking", t)}
+    <div class="card shadow-sm mt-3">
+      <div class="card-body">
+        <h3 class="h5 mb-2">${t("rankingViewTitle")}</h3>
+        <p class="text-muted">${t("rankingHelp")}</p>
+        <div class="card mb-3 ranking-unassigned-drop-zone">
+          <div class="card-body">
+            <h4 class="h6 mb-3">${t("rankingUnassigned")}</h4>
+            <div class="player-chip-list">
+              ${
+                unranked
+                  .map((playerId) => renderPlayerChip(tournament, playerId, "ranking", "unranked", getPlayerName))
+                  .join("") || `<span class="text-muted small">${t("dropPlayer")}</span>`
+              }
+            </div>
+          </div>
+        </div>
+        <ul class="list-group">${rows}</ul>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <button type="button" id="back-to-pairing" class="btn btn-outline-secondary">${t(
+            "backToPairing"
+          )}</button>
+          <button type="button" id="finish-round" class="btn btn-primary">${t("finishRound")}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+export function renderTournamentView({ getCurrentTournament, state, t, getPlayerName }) {
+  const tournament = getCurrentTournament();
+  if (!tournament) {
+    return `<div class="alert alert-light border">${t("noTournamentsYet")}</div>`;
+  }
+
+  const topActions = `
+    <div class="d-flex gap-2">
+      <button id="back-home" class="btn btn-outline-secondary">${t("backToHome")}</button>
+    </div>
+  `;
+
+  let content = "";
+  if (!tournament.currentRoundDraft) {
+    content = `
+      <div class="card shadow-sm mt-4">
+        <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+          <div>
+            <h3 class="h5 mb-1">${escapeHtml(tournament.name)}</h3>
+            <p class="text-muted mb-0">${t("roundsCount")}: ${tournament.rounds.length}</p>
+          </div>
+          <button id="prepare-round" class="btn btn-primary">${t("prepareRound")}</button>
+        </div>
+      </div>
+      ${renderRankingSnapshot(tournament, t, getPlayerName)}
+      ${renderRoundHistory(tournament, t, getPlayerName)}
+    `;
+  } else if (tournament.currentRoundDraft.phase === "pairing") {
+    content = renderPairingDraft(tournament, state, t, getPlayerName);
+  } else {
+    content = renderRankingDraft(tournament, t, getPlayerName);
+  }
+
+  return `
+    <section>
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <h1 class="h4 mb-0">${escapeHtml(tournament.name)}</h1>
+        ${topActions}
+      </div>
+      ${content}
+    </section>
+  `;
+}
+
+export function renderNotificationStack({ uiState, t }) {
+  if (uiState.notifications.length === 0) {
+    return "";
+  }
+  const items = uiState.notifications
+    .map(
+      (notification) => `
+        <div class="alert alert-${escapeHtml(notification.variant)} alert-dismissible fade show fp-notification-shadow mb-2" role="status" aria-live="polite" data-notification-id="${escapeHtml(notification.id)}">
+          ${escapeHtml(notification.message)}
+          <button type="button" class="btn-close" aria-label="${t("closeNotification")}" data-notification-dismiss="${escapeHtml(notification.id)}"></button>
+        </div>
+      `
+    )
+    .join("");
+
+  return `<section class="fp-notification-stack" aria-label="Notifications">${items}</section>`;
+}

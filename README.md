@@ -49,7 +49,13 @@ fair-pair/
 └── docs/
     ├── index.html             # Application shell
     ├── style.css              # Visual styles (dark modern UI)
-    ├── app.js                 # UI views + drag-drop orchestration
+    ├── app.js                 # Thin app entrypoint
+    ├── app/
+    │   ├── main.js            # App bootstrap + render orchestration
+    │   ├── listeners.js       # UI listeners + drag-drop interactions
+    │   ├── renderers.js       # Home/setup/tournament view rendering
+    │   ├── constants.js       # i18n messages + UI constants
+    │   └── utils.js           # Shared app utilities
     ├── pairing.js             # Pure pairing assistant logic
     └── tournament-state.js    # Pure app/tournament state helpers
 ```
