@@ -1,6 +1,6 @@
 # Fair Pair
 
-**Fair Pair** is a lightweight browser app that helps a tournament organizer build the **next round pairings** with a visual interface.
+**Fair Pair** is a lightweight vibe-coded browser app that helps a tournament organizer build the **next round pairings** with a visual interface.
 
 The app does **not** compute match winners, points, or Swiss standings. The organizer remains the source of truth for scoring outside the app.
 
