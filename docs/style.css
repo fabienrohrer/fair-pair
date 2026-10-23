@@ -288,6 +288,7 @@ main {
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: grab;
+  touch-action: none;
   transition: transform 0.15s ease, filter 0.15s ease;
   text-shadow: 0 1px 0 rgba(255 255 255 / 22%);
 }
@@ -301,17 +302,48 @@ main {
   cursor: grabbing;
 }
 
+.player-chip.fp-drag-source {
+  opacity: 0.35;
+}
+
+.fp-drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 2000;
+  pointer-events: none;
+  opacity: 0.95;
+  transform: translate(-50%, -50%) scale(1.03);
+  box-shadow: 0 0.8rem 1.6rem rgba(2, 8, 20, 0.45);
+}
+
 .pairing-drop-zone,
 .ranking-drop-zone,
 .ranking-unassigned-drop-zone {
   border: 1px dashed transparent;
   border-radius: 0.6rem;
+  touch-action: none;
 }
 
 .pairing-drop-zone:hover,
 .ranking-drop-zone:hover,
 .ranking-unassigned-drop-zone:hover {
   border-color: #3f5e96;
+}
+
+.fp-drop-target-active {
+  border-color: #6f96ff !important;
+  background: rgba(91, 140, 255, 0.12);
+}
+
+body.fp-touch-drag-active {
+  overflow: hidden;
+}
+
+html.fp-touch-drag-active,
+body.fp-touch-drag-active {
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
 .pairing-slots {
