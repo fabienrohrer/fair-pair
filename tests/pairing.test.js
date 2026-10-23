@@ -130,6 +130,34 @@ test("random mode still returns valid pair list", () => {
   assert.equal(seen.size, 6);
 });
 
+test("random mode reshuffles the bye as well as all other players", () => {
+  const players = makePlayers(5);
+  const first = generatePairingProposal({
+    players,
+    rounds: [],
+    rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"], ["p5"]],
+    mode: "random",
+    byeStrategy: "random",
+    priorityOrder: ["avoid_rematch", "minimize_gap", "bye_fairness"],
+    randomSeed: 1,
+  });
+  const second = generatePairingProposal({
+    players,
+    rounds: [],
+    rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"], ["p5"]],
+    mode: "random",
+    byeStrategy: "random",
+    priorityOrder: ["avoid_rematch", "minimize_gap", "bye_fairness"],
+    randomSeed: 2,
+  });
+
+  assert.notEqual(first.byePlayerId, second.byePlayerId);
+  assert.notDeepEqual(
+    first.matches.map((match) => [match.a, match.b].sort().join("-")),
+    second.matches.map((match) => [match.a, match.b].sort().join("-"))
+  );
+});
+
 test("pairing validation enforces complete unique assignments", () => {
   const slots = createEmptyPairingSlots(4);
   slots[0].a = "p1";

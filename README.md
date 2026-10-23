@@ -68,4 +68,8 @@ Tests use Node built-in test runner and focus on:
 
 ## Deployment
 
+The application is hosted at:
+
+https://fabienrohrer.github.io/fair-pair/
+
 Push files to GitHub and enable GitHub Pages from `/docs` on branch `main`.

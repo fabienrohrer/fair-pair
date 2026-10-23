@@ -44,6 +44,7 @@ export function createRoundDraft(playerIds) {
       mode: "automatic",
       byeStrategy: "worst",
       priorityOrder: ["avoid_rematch", "minimize_gap", "bye_fairness"],
+      randomSeed: 1,
     },
     pairing: {
       tables: createEmptyPairingSlots(playerIds.length),

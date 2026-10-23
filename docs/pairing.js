@@ -221,6 +221,30 @@ export function generatePairingProposal({
   }
 
   const byeCounts = getByeCounts(players, rounds);
+
+  if (mode === "random") {
+    const shuffled = orderedPlayerIds.slice();
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+      const swapIndex = seededRandomIndex(index + 1, randomSeed + index * 97 + 13);
+      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+    }
+
+    let byePlayerId = null;
+    if (shuffled.length % 2 !== 0) {
+      byePlayerId = shuffled.shift();
+    }
+
+    const pairs = [];
+    for (let index = 0; index < shuffled.length; index += 2) {
+      pairs.push({ a: shuffled[index], b: shuffled[index + 1] });
+    }
+
+    return {
+      byePlayerId,
+      matches: sortPairsByOrder(pairs, orderedPlayerIds),
+    };
+  }
+
   const byePlayerId = selectByeCandidate({
     orderedPlayerIds,
     byeCounts,
@@ -232,26 +256,13 @@ export function generatePairingProposal({
     ? orderedPlayerIds.filter((id) => id !== byePlayerId)
     : orderedPlayerIds.slice();
 
-  let pairs;
-  if (mode === "random") {
-    const shuffled = activePlayers.slice();
-    for (let index = shuffled.length - 1; index > 0; index -= 1) {
-      const swapIndex = seededRandomIndex(index + 1, randomSeed + index * 97);
-      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-    }
-    pairs = [];
-    for (let index = 0; index < shuffled.length; index += 2) {
-      pairs.push({ a: shuffled[index], b: shuffled[index + 1] });
-    }
-  } else {
-    const normalizedOrder = normalizePriorityOrder(priorityOrder);
-    const context = {
-      byeCounts,
-      opponentMap: getOpponentMap(players, rounds),
-      rankIndex: buildRankIndexByOrder(orderedPlayerIds),
-    };
-    pairs = solveMinimumMatching(activePlayers, context, normalizedOrder);
-  }
+  const normalizedOrder = normalizePriorityOrder(priorityOrder);
+  const context = {
+    byeCounts,
+    opponentMap: getOpponentMap(players, rounds),
+    rankIndex: buildRankIndexByOrder(orderedPlayerIds),
+  };
+  const pairs = solveMinimumMatching(activePlayers, context, normalizedOrder);
 
   return {
     byePlayerId,

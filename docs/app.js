@@ -64,6 +64,12 @@ const messages = {
     byeWorst: "Lowest-ranked eligible",
     byeRandom: "Random eligible",
     priorityOrder: "Priority order",
+    priorityAvoidRematch: "Avoid rematch → minimize ranking gap → BYE fairness",
+    priorityAvoidRematchByeFirst: "Avoid rematch → BYE fairness → minimize ranking gap",
+    priorityGapFirst: "Minimize ranking gap → avoid rematch → BYE fairness",
+    priorityGapByeFirst: "Minimize ranking gap → BYE fairness → avoid rematch",
+    priorityByeFirst: "BYE fairness → avoid rematch → minimize ranking gap",
+    priorityByeGapFirst: "BYE fairness → minimize ranking gap → avoid rematch",
     tryAutoPairing: "Try",
     clearPairing: "Clear slots",
     startRound: "Start round",
@@ -79,7 +85,6 @@ const messages = {
     invalidPairing: "Please assign every player exactly once before starting the round.",
     invalidRanking: "Please rank every player exactly once before saving the round.",
     roundSaved: "Round saved.",
-    manageSetup: "Edit setup",
   },
   fr: {
     appTitle: "Fair Pair",
@@ -118,6 +123,12 @@ const messages = {
     byeWorst: "Dernier joueur éligible",
     byeRandom: "Joueur éligible aléatoire",
     priorityOrder: "Ordre des priorités",
+    priorityAvoidRematch: "Éviter les rematches → minimiser l'écart de rang → équité BYE",
+    priorityAvoidRematchByeFirst: "Éviter les rematches → équité BYE → minimiser l'écart de rang",
+    priorityGapFirst: "Minimiser l'écart de rang → éviter les rematches → équité BYE",
+    priorityGapByeFirst: "Minimiser l'écart de rang → équité BYE → éviter les rematches",
+    priorityByeFirst: "Équité BYE → éviter les rematches → minimiser l'écart de rang",
+    priorityByeGapFirst: "Équité BYE → minimiser l'écart de rang → éviter les rematches",
     tryAutoPairing: "Essayer",
     clearPairing: "Vider les slots",
     startRound: "Démarrer le round",
@@ -133,7 +144,6 @@ const messages = {
     invalidPairing: "Assignez chaque joueur une seule fois avant de démarrer le round.",
     invalidRanking: "Classez chaque joueur une seule fois avant d'enregistrer le round.",
     roundSaved: "Round enregistré.",
-    manageSetup: "Modifier le setup",
   },
 };
 
@@ -232,17 +242,38 @@ function openTournamentView(tournamentId) {
 }
 
 function getPriorityLabel(priorityOrder) {
-  return priorityOrder
-    .map((value) => {
-      if (value === "avoid_rematch") {
-        return "avoid rematch";
-      }
-      if (value === "minimize_gap") {
-        return "minimize ranking gap";
-      }
-      return "bye fairness";
-    })
-    .join(" → ");
+  const labels = priorityOrder.map((value) => {
+    if (value === "avoid_rematch") {
+      return state.language === "fr" ? "éviter les rematches" : "avoid rematch";
+    }
+    if (value === "minimize_gap") {
+      return state.language === "fr" ? "minimiser l'écart de rang" : "minimize ranking gap";
+    }
+    return state.language === "fr" ? "équité BYE" : "bye fairness";
+  });
+
+  const combined = labels.join(" → ");
+  const map = {
+    "avoid rematch → minimize ranking gap → bye fairness": "priorityAvoidRematch",
+    "avoid rematch → bye fairness → minimize ranking gap": "priorityAvoidRematchByeFirst",
+    "minimize ranking gap → avoid rematch → bye fairness": "priorityGapFirst",
+    "minimize ranking gap → bye fairness → avoid rematch": "priorityGapByeFirst",
+    "bye fairness → avoid rematch → minimize ranking gap": "priorityByeFirst",
+    "bye fairness → minimize ranking gap → avoid rematch": "priorityByeGapFirst",
+    "éviter les rematches → minimiser l'écart de rang → équité BYE": "priorityAvoidRematch",
+    "éviter les rematches → équité BYE → minimiser l'écart de rang": "priorityAvoidRematchByeFirst",
+    "minimiser l'écart de rang → éviter les rematches → équité BYE": "priorityGapFirst",
+    "minimiser l'écart de rang → équité BYE → éviter les rematches": "priorityGapByeFirst",
+    "équité BYE → éviter les rematches → minimiser l'écart de rang": "priorityByeFirst",
+    "équité BYE → minimiser l'écart de rang → éviter les rematches": "priorityByeGapFirst",
+  };
+
+  const translatedKey = map[combined];
+  if (!translatedKey) {
+    return combined;
+  }
+
+  return t(translatedKey);
 }
 
 function currentPlayerIds(tournament) {
@@ -334,16 +365,37 @@ function assignPlayerToRankingGroup(draft, playerId, targetRankIndex) {
   draft.rankingGroups[targetRankIndex].push(playerId);
 }
 
+function getPlayerColorStyle(playerId) {
+  const safe = `${playerId}`;
+  let hash = 0;
+  for (let index = 0; index < safe.length; index += 1) {
+    hash = safe.charCodeAt(index) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  const start = (hue + 18) % 360;
+  const end = (hue + 86) % 360;
+  return {
+    background: `linear-gradient(135deg, hsl(${hue} 80% 62%) 0%, hsl(${start} 80% 68%) 100%)`,
+    borderColor: `hsl(${end} 70% 60%)`,
+    boxShadow: `0 0.35rem 0.8rem hsl(${hue} 80% 55% / 25%)`,
+  };
+}
+
 function renderAppBar() {
   return `
-    <nav class="navbar navbar-expand-lg fairpair-appbar px-3 py-2 mb-4 rounded-3">
+    <nav class="navbar navbar-expand-lg fairpair-appbar px-3 px-md-4 py-3 mb-4">
       <div class="container-fluid px-0">
-        <span class="navbar-brand mb-0 fw-semibold">${t("appTitle")}</span>
-        <div class="d-flex align-items-center gap-2 ms-auto">
-          <span class="lang-icon" aria-hidden="true">🌐</span>
-          <div class="lang-switcher" role="group" aria-label="${t("language")}">
-            <button type="button" class="lang-btn ${state.language === "en" ? "active" : ""}" data-lang="en">EN</button>
-            <button type="button" class="lang-btn ${state.language === "fr" ? "active" : ""}" data-lang="fr">FR</button>
+        <div class="d-flex align-items-center justify-content-between w-100 gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <span class="appbar-mark">F</span>
+            <span class="navbar-brand mb-0 fw-semibold">${t("appTitle")}</span>
+          </div>
+          <div class="d-flex align-items-center gap-2 ms-auto">
+            <span class="lang-icon" aria-hidden="true">🌐</span>
+            <div class="lang-switcher" role="group" aria-label="${t("language")}">
+              <button type="button" class="lang-btn ${state.language === "en" ? "active" : ""}" data-lang="en">EN</button>
+              <button type="button" class="lang-btn ${state.language === "fr" ? "active" : ""}" data-lang="fr">FR</button>
+            </div>
           </div>
         </div>
       </div>
@@ -352,6 +404,7 @@ function renderAppBar() {
 }
 
 function renderPlayerChip(tournament, playerId, dragType, origin = "") {
+  const palette = getPlayerColorStyle(playerId);
   return `
     <button
       type="button"
@@ -360,6 +413,7 @@ function renderPlayerChip(tournament, playerId, dragType, origin = "") {
       data-drag-type="${dragType}"
       data-player-id="${escapeHtml(playerId)}"
       data-origin="${escapeHtml(origin)}"
+      style="background: ${palette.background}; border-color: ${palette.borderColor}; box-shadow: ${palette.boxShadow};"
     >
       ${escapeHtml(getPlayerName(tournament, playerId))}
     </button>
@@ -504,6 +558,7 @@ function renderPairingDraft(tournament) {
   const unassigned = getPairingUnassignedIds(tournament);
   const byeEnabled = tournament.players.length % 2 === 1;
   const priorityValue = draft.autoOptions.priorityOrder.join("|");
+  const isAutomaticMode = draft.autoOptions.mode === "automatic";
 
   const tables = draft.pairing.tables
     .map((table, index) => {
@@ -543,12 +598,34 @@ function renderPairingDraft(tournament) {
       }>${escapeHtml(getPriorityLabel(order))}</option>`
   ).join("");
 
+  const automaticSettings = isAutomaticMode
+    ? `
+      <div class="row g-2">
+        <div class="col-12 col-md-3">
+          <label class="form-label">${t("byeStrategy")}</label>
+          <select id="auto-bye-strategy" class="form-select">
+            <option value="worst" ${draft.autoOptions.byeStrategy === "worst" ? "selected" : ""}>${t(
+              "byeWorst"
+            )}</option>
+            <option value="random" ${draft.autoOptions.byeStrategy === "random" ? "selected" : ""}>${t(
+              "byeRandom"
+            )}</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label">${t("priorityOrder")}</label>
+          <select id="auto-priority-order" class="form-select">${priorityOptions}</select>
+        </div>
+      </div>
+    `
+    : "";
+
   return `
     <div class="card shadow-sm mt-4">
       <div class="card-body">
         <h3 class="h5 mb-3">${t("pairingViewTitle")}</h3>
-        <div class="card mb-3">
-          <div class="card-body pairing-drop-zone" data-drop-type="pool">
+        <div class="card mb-3 player-bank">
+          <div class="card-body pairing-drop-zone player-bank-zone" data-drop-type="pool">
             <h4 class="h6 mb-3">${t("playerPool")}</h4>
             <div class="player-chip-list">${poolContent}</div>
           </div>
@@ -580,22 +657,8 @@ function renderPairingDraft(tournament) {
                   )}</option>
                 </select>
               </div>
-              <div class="col-12 col-md-3">
-                <label class="form-label">${t("byeStrategy")}</label>
-                <select id="auto-bye-strategy" class="form-select">
-                  <option value="worst" ${draft.autoOptions.byeStrategy === "worst" ? "selected" : ""}>${t(
-                    "byeWorst"
-                  )}</option>
-                  <option value="random" ${draft.autoOptions.byeStrategy === "random" ? "selected" : ""}>${t(
-                    "byeRandom"
-                  )}</option>
-                </select>
-              </div>
-              <div class="col-12 col-md-6">
-                <label class="form-label">${t("priorityOrder")}</label>
-                <select id="auto-priority-order" class="form-select">${priorityOptions}</select>
-              </div>
             </div>
+            ${automaticSettings}
             <div class="d-flex gap-2 mt-3">
               <button type="button" id="try-auto-pairing" class="btn btn-outline-primary">${t(
                 "tryAutoPairing"
@@ -671,7 +734,6 @@ function renderTournamentView() {
   const topActions = `
     <div class="d-flex gap-2">
       <button id="back-home" class="btn btn-outline-secondary">${t("backToHome")}</button>
-      <button id="edit-setup" class="btn btn-outline-secondary">${t("manageSetup")}</button>
     </div>
   `;
 
@@ -931,11 +993,6 @@ function attachTournamentListeners() {
     render();
   });
 
-  document.getElementById("edit-setup")?.addEventListener("click", () => {
-    openSetupView("edit", tournament.id, "tournament");
-    render();
-  });
-
   document.getElementById("prepare-round")?.addEventListener("click", () => {
     tournament.currentRoundDraft = createRoundDraft(currentPlayerIds(tournament));
     tournament.updatedAt = Date.now();
@@ -946,13 +1003,26 @@ function attachTournamentListeners() {
   if (tournament.currentRoundDraft?.phase === "pairing") {
     attachPairingDnD(tournament);
 
+    document.getElementById("auto-mode")?.addEventListener("change", (event) => {
+      const draft = tournament.currentRoundDraft;
+      draft.autoOptions.mode = event.target.value;
+      tournament.updatedAt = Date.now();
+      saveState();
+      render();
+    });
+
     document.getElementById("try-auto-pairing")?.addEventListener("click", () => {
       const draft = tournament.currentRoundDraft;
-      draft.autoOptions.mode = document.getElementById("auto-mode").value;
-      draft.autoOptions.byeStrategy = document.getElementById("auto-bye-strategy").value;
-      draft.autoOptions.priorityOrder = document
-        .getElementById("auto-priority-order")
-        .value.split("|");
+      const selectedMode = document.getElementById("auto-mode")?.value || draft.autoOptions.mode;
+      draft.autoOptions.mode = selectedMode;
+      draft.autoOptions.byeStrategy =
+        document.getElementById("auto-bye-strategy")?.value || draft.autoOptions.byeStrategy;
+      draft.autoOptions.priorityOrder = document.getElementById("auto-priority-order")
+        ? document.getElementById("auto-priority-order").value.split("|")
+        : draft.autoOptions.priorityOrder;
+
+      const nextRandomSeed = Date.now() + Math.floor(Math.random() * 1000000);
+      draft.autoOptions.randomSeed = nextRandomSeed;
 
       const proposal = generatePairingProposal({
         players: tournament.players,
@@ -961,7 +1031,7 @@ function attachTournamentListeners() {
         mode: draft.autoOptions.mode,
         byeStrategy: draft.autoOptions.byeStrategy,
         priorityOrder: draft.autoOptions.priorityOrder,
-        randomSeed: tournament.rounds.length + 1,
+        randomSeed: nextRandomSeed,
       });
 
       const freshSlots = createEmptyPairingSlots(tournament.players.length);
