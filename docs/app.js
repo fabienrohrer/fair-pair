@@ -1112,6 +1112,11 @@ function render() {
   root.innerHTML = `
     ${renderAppBar()}
     ${viewContent}
+    <footer class="fairpair-footer mt-4 px-3 py-3 text-center small text-muted">
+      <a href="https://github.com/fabienrohrer/fair-pair" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-primary-emphasis">
+        github.com/fabienrohrer/fair-pair
+      </a>
+    </footer>
   `;
 
   attachGlobalListeners();
