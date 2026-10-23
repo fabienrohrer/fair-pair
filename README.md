@@ -60,6 +60,7 @@ npm test
 
 Tests use Node built-in test runner and focus on:
 - pairing assistant correctness and edge cases,
+- compact scenario-matrix coverage for automatic pairing behaviors (priority order, rematches, odd-player BYE fairness),
 - BYE fairness,
 - state migration and tournament lifecycle helpers,
 - ranking-group normalization rules.

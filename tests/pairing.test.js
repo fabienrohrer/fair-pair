@@ -16,6 +16,79 @@ function makePlayers(count) {
   }));
 }
 
+function parseRanking(spec) {
+  return spec.split(">").map((group) => group.split(",").map((playerNumber) => `p${playerNumber}`));
+}
+
+function parseMatches(spec) {
+  if (!spec) {
+    return [];
+  }
+  return spec.split("|").map((pair) => {
+    const [a, b] = pair.split("-");
+    return { a: `p${a}`, b: `p${b}` };
+  });
+}
+
+function runAutoScenario(scenario) {
+  const players = makePlayers(scenario.playerCount);
+  const rankingGroups = parseRanking(scenario.ranking);
+  const rounds = (scenario.rounds || []).map((round) => ({
+    byePlayerId: round.bye ? `p${round.bye}` : null,
+    matches: parseMatches(round.matches),
+    rankingGroups,
+  }));
+
+  return generatePairingProposal({
+    players,
+    rounds,
+    rankingGroups,
+    mode: "automatic",
+    byeStrategy: scenario.byeStrategy || "worst",
+    priorityOrder: scenario.priorityOrder || ["avoid_rematch", "minimize_gap", "bye_fairness"],
+    randomSeed: scenario.randomSeed || 1,
+  });
+}
+
+test("compact scenario matrix covers rematch, priorities, and BYE fairness", () => {
+  const scenarios = [
+    {
+      name: "avoid rematch when possible",
+      playerCount: 4,
+      ranking: "1>2>3>4",
+      rounds: [{ matches: "1-2|3-4" }],
+      expectPairs: ["p1-p3", "p2-p4"],
+    },
+    {
+      name: "allow rematch when ranking gap is first priority",
+      playerCount: 4,
+      ranking: "1>2>3>4",
+      rounds: [{ matches: "1-2|3-4" }],
+      priorityOrder: ["minimize_gap", "avoid_rematch", "bye_fairness"],
+      expectPairs: ["p1-p2", "p3-p4"],
+    },
+    {
+      name: "odd roster gives BYE to lowest ranked eligible player",
+      playerCount: 5,
+      ranking: "1>2>3>4>5",
+      rounds: [{ bye: "5", matches: "1-2|3-4" }],
+      expectBye: "p4",
+      expectPairs: ["p1-p3", "p2-p5"],
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    const proposal = runAutoScenario(scenario);
+    const normalized = proposal.matches.map((match) => [match.a, match.b].sort().join("-")).sort();
+    assert.deepEqual(normalized, scenario.expectPairs, scenario.name);
+    if (scenario.expectBye) {
+      assert.equal(proposal.byePlayerId, scenario.expectBye, scenario.name);
+    } else {
+      assert.equal(proposal.byePlayerId, null, scenario.name);
+    }
+  }
+});
+
 test("automatic proposal avoids rematches when avoidable", () => {
   const players = makePlayers(4);
   const rounds = [
