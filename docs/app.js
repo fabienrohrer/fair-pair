@@ -387,11 +387,10 @@ function renderAppBar() {
       <div class="container-fluid px-0">
         <div class="d-flex align-items-center justify-content-between w-100 gap-3">
           <div class="d-flex align-items-center gap-3">
-            <span class="appbar-mark">F</span>
-            <span class="navbar-brand mb-0 fw-semibold">${t("appTitle")}</span>
+            <img class="brand-logo appbar-logo" src="./fair-pair-logo.svg" alt="Fair Pair logo" />
           </div>
           <div class="d-flex align-items-center gap-2 ms-auto">
-            <span class="lang-icon" aria-hidden="true">🌐</span>
+            <i class="bi bi-globe2 lang-icon" aria-hidden="true"></i>
             <div class="lang-switcher" role="group" aria-label="${t("language")}">
               <button type="button" class="lang-btn ${state.language === "en" ? "active" : ""}" data-lang="en">EN</button>
               <button type="button" class="lang-btn ${state.language === "fr" ? "active" : ""}" data-lang="fr">FR</button>
@@ -1112,10 +1111,23 @@ function render() {
   root.innerHTML = `
     ${renderAppBar()}
     ${viewContent}
-    <footer class="fairpair-footer mt-4 px-3 py-3 text-center small text-muted">
-      <a href="https://github.com/fabienrohrer/fair-pair" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-primary-emphasis">
-        github.com/fabienrohrer/fair-pair
-      </a>
+    <footer class="fairpair-footer mt-4">
+      <div class="fairpair-footer-inner">
+        <div class="fairpair-footer-brand">
+          <img class="brand-logo fairpair-footer-logo" src="./fair-pair-logo.svg" alt="Fair Pair logo" />
+        </div>
+        <div class="fairpair-footer-meta">
+          <a href="https://github.com/fabienrohrer/fair-pair" target="_blank" rel="noopener noreferrer" class="fairpair-icon-link" aria-label="Fair Pair on GitHub">
+            <i class="bi bi-github fairpair-icon"></i>
+            <span>GitHub</span>
+          </a>
+          <span class="fairpair-footer-dot">•</span>
+          <span>Open source</span>
+          <span class="fairpair-footer-dot">•</span>
+          <span>Made with AI</span>
+          <i class="bi bi-stars fairpair-icon fairpair-icon-small" aria-hidden="true"></i>
+        </div>
+      </div>
     </footer>
   `;
 

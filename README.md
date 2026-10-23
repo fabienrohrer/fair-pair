@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./docs/fair-pair-logo.svg" alt="Fair Pair logo" width="420" />
+</p>
+
 # Fair Pair
 
 **Fair Pair** is a lightweight vibe-coded browser app that helps a tournament organizer build the **next round pairings** with a visual interface.

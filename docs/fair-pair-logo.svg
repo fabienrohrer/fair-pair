@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 220" role="img" aria-labelledby="fair-pair-title fair-pair-desc">
+  <title id="fair-pair-title">Fair Pair</title>
+  <desc id="fair-pair-desc">Minimal text-based logo for Fair Pair with a clean underline and tournament pairing subtitle.</desc>
+
+  <defs>
+    <linearGradient id="pairGrad" x1="0%" x2="100%" y1="0%" y2="0%">
+      <stop offset="0%" stop-color="#8bead3"/>
+      <stop offset="100%" stop-color="#7cc8ff"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(36 26)">
+    <text x="0" y="92" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="108" font-weight="800" letter-spacing="-3">
+      <tspan fill="#edf5ff">Fair</tspan>
+      <tspan fill="#8fe7d4">Pair</tspan>
+    </text>
+
+    <line x1="0" x2="690" y1="124" y2="124" stroke="#b6d8ff" stroke-width="5" stroke-linecap="round"/>
+
+    <text
+      x="0"
+      y="172"
+      font-family="Segoe UI, Inter, Arial, sans-serif"
+      font-size="32"
+      font-weight="700"
+      letter-spacing="7"
+      fill="#9fb0ca"
+      textLength="690"
+      lengthAdjust="spacingAndGlyphs"
+    >TOURNAMENT PAIRING</text>
+  </g>
+</svg>
