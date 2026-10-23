@@ -84,10 +84,8 @@ function getPlayerHue(tournament, playerId) {
 
 function getPlayerColorStyle(hue) {
   const start = (hue + 18) % 360;
-  const end = (hue + 86) % 360;
   return {
     background: `linear-gradient(135deg, hsl(${hue} 80% 62%) 0%, hsl(${start} 80% 68%) 100%)`,
-    borderColor: `hsl(${end} 70% 60%)`,
     boxShadow: `0 0.35rem 0.8rem hsl(${hue} 80% 55% / 25%)`,
   };
 }
@@ -102,7 +100,7 @@ function renderPlayerChip(tournament, playerId, dragType, origin, getPlayerName)
       data-drag-type="${dragType}"
       data-player-id="${escapeHtml(playerId)}"
       data-origin="${escapeHtml(origin)}"
-      style="background: ${palette.background}; border-color: ${palette.borderColor}; box-shadow: ${palette.boxShadow};"
+      style="background: ${palette.background}; box-shadow: ${palette.boxShadow};"
     >
       ${escapeHtml(getPlayerName(tournament, playerId))}
     </button>
@@ -308,7 +306,7 @@ function renderPairingDraft(tournament, state, t, getPlayerName) {
       return `
         <div class="card mb-3">
           <div class="card-body">
-            <h4 class="h6 mb-3">${t("tables")} ${table.tableNumber}</h4>
+            <h4 class="h6 mb-3">${t("tables")} #${table.tableNumber}</h4>
             <div class="pairing-slots">
               <div class="pairing-drop-zone" data-drop-type="slot" data-table-index="${index}" data-slot="a">${aContent}</div>
               <div class="pairing-drop-zone" data-drop-type="slot" data-table-index="${index}" data-slot="b">${bContent}</div>
@@ -362,11 +360,8 @@ function renderPairingDraft(tournament, state, t, getPlayerName) {
     <div class="card shadow-sm mt-3">
       <div class="card-body">
         <h3 class="h5 mb-3">${t("pairingViewTitle")}</h3>
-        <div class="card mb-3 player-bank">
-          <div class="card-body pairing-drop-zone player-bank-zone" data-drop-type="pool">
-            <h4 class="h6 mb-3">${t("playerPool")}</h4>
-            <div class="player-chip-list">${poolContent}</div>
-          </div>
+        <div class="pairing-drop-zone player-bank-zone mb-3 p-3" data-drop-type="pool">
+          <div class="player-chip-list">${poolContent}</div>
         </div>
         ${tables}
         ${

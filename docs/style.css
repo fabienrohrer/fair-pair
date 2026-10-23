@@ -332,18 +332,13 @@ main {
   gap: 0.5rem;
 }
 
-.player-bank {
-  background: linear-gradient(180deg, rgba(23, 41, 66, 0.9) 0%, rgba(12, 24, 38, 0.9) 100%);
-  border: 1px solid rgba(103, 147, 255, 0.25);
-}
-
 .player-bank-zone {
-  border: 1px dashed rgba(141, 166, 224, 0.35);
-  background: rgba(11, 18, 32, 0.24);
+  border: 2px dashed rgba(141, 166, 224, 0.45);
+  background: transparent;
 }
 
 .player-chip {
-  border: 1px solid transparent;
+  border: none;
   color: #081421;
   border-radius: 999px;
   padding: 0.3rem 0.8rem;
