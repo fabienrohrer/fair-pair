@@ -313,6 +313,27 @@ main {
   background: linear-gradient(180deg, #1a2a42 0%, #17263d 100%);
 }
 
+.round-stage-banner {
+  border: 1px solid rgba(122, 162, 255, 0.4);
+  border-radius: 0.9rem;
+  background: linear-gradient(135deg, rgba(64, 102, 187, 0.35) 0%, rgba(22, 38, 61, 0.75) 100%);
+  box-shadow: 0 0.9rem 1.8rem rgb(4 10 23 / 35%);
+  padding: 1rem 1.1rem;
+}
+
+.round-stage-kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: #c8d9ff;
+}
+
+.round-stage-title {
+  font-size: clamp(1.3rem, 2.3vw, 1.85rem);
+  font-weight: 800;
+  color: #f3f8ff;
+}
+
 .rank-label {
   min-width: 1.5rem;
 }

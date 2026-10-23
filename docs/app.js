@@ -85,6 +85,13 @@ const messages = {
     invalidPairing: "Please assign every player exactly once before starting the round.",
     invalidRanking: "Please rank every player exactly once before saving the round.",
     roundSaved: "Round saved.",
+    backToPairing: "Back to pairing",
+    backToTournament: "Back to tournament",
+    currentRound: "Current round",
+    stepPairing: "Pairing",
+    stepRanking: "Ranking",
+    confirmDiscardDraft:
+      "Going back will discard the current round draft (pairing and ranking). Continue?",
   },
   fr: {
     appTitle: "Fair Pair",
@@ -144,6 +151,13 @@ const messages = {
     invalidPairing: "Assignez chaque joueur une seule fois avant de démarrer le round.",
     invalidRanking: "Classez chaque joueur une seule fois avant d'enregistrer le round.",
     roundSaved: "Round enregistré.",
+    backToPairing: "Retour à l'appariement",
+    backToTournament: "Retour au tournoi",
+    currentRound: "Round en cours",
+    stepPairing: "Appariement",
+    stepRanking: "Classement",
+    confirmDiscardDraft:
+      "Le retour supprimera le round en cours (appariement et classement). Continuer ?",
   },
 };
 
@@ -534,6 +548,29 @@ function renderRoundHistory(tournament) {
   `;
 }
 
+function getCurrentDraftRoundNumber(tournament) {
+  return tournament.rounds.length + 1;
+}
+
+function getRoundStepLabel(phase) {
+  return phase === "ranking" ? t("stepRanking") : t("stepPairing");
+}
+
+function renderRoundStageHeader(tournament, phase) {
+  return `
+    <div class="round-stage-banner mt-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+          <div class="round-stage-kicker text-uppercase">${t("currentRound")}</div>
+          <h2 class="round-stage-title mb-0">#${getCurrentDraftRoundNumber(tournament)} — ${getRoundStepLabel(
+            phase
+          )}</h2>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderRankingSnapshot(tournament) {
   const rows = tournament.rankingGroups
     .filter((group) => group.length > 0)
@@ -620,7 +657,8 @@ function renderPairingDraft(tournament) {
     : "";
 
   return `
-    <div class="card shadow-sm mt-4">
+    ${renderRoundStageHeader(tournament, "pairing")}
+    <div class="card shadow-sm mt-3">
       <div class="card-body">
         <h3 class="h5 mb-3">${t("pairingViewTitle")}</h3>
         <div class="card mb-3 player-bank">
@@ -668,7 +706,12 @@ function renderPairingDraft(tournament) {
             </div>
           </div>
         </div>
-        <button type="button" id="start-round" class="btn btn-primary mt-3">${t("startRound")}</button>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <button type="button" id="back-to-tournament" class="btn btn-outline-secondary">${t(
+            "backToTournament"
+          )}</button>
+          <button type="button" id="start-round" class="btn btn-primary">${t("startRound")}</button>
+        </div>
       </div>
     </div>
   `;
@@ -702,7 +745,8 @@ function renderRankingDraft(tournament) {
     .join("");
 
   return `
-    <div class="card shadow-sm mt-4">
+    ${renderRoundStageHeader(tournament, "ranking")}
+    <div class="card shadow-sm mt-3">
       <div class="card-body">
         <h3 class="h5 mb-2">${t("rankingViewTitle")}</h3>
         <p class="text-muted">${t("rankingHelp")}</p>
@@ -718,7 +762,12 @@ function renderRankingDraft(tournament) {
           </div>
         </div>
         <ul class="list-group">${rows}</ul>
-        <button type="button" id="finish-round" class="btn btn-primary mt-3">${t("finishRound")}</button>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <button type="button" id="back-to-pairing" class="btn btn-outline-secondary">${t(
+            "backToPairing"
+          )}</button>
+          <button type="button" id="finish-round" class="btn btn-primary">${t("finishRound")}</button>
+        </div>
       </div>
     </div>
   `;
@@ -1002,6 +1051,16 @@ function attachTournamentListeners() {
   if (tournament.currentRoundDraft?.phase === "pairing") {
     attachPairingDnD(tournament);
 
+    document.getElementById("back-to-tournament")?.addEventListener("click", () => {
+      if (!window.confirm(t("confirmDiscardDraft"))) {
+        return;
+      }
+      tournament.currentRoundDraft = null;
+      tournament.updatedAt = Date.now();
+      saveState();
+      render();
+    });
+
     document.getElementById("auto-mode")?.addEventListener("change", (event) => {
       const draft = tournament.currentRoundDraft;
       draft.autoOptions.mode = event.target.value;
@@ -1075,6 +1134,16 @@ function attachTournamentListeners() {
 
   if (tournament.currentRoundDraft?.phase === "ranking") {
     attachRankingDnD(tournament);
+
+    document.getElementById("back-to-pairing")?.addEventListener("click", () => {
+      const draft = tournament.currentRoundDraft;
+      draft.phase = "pairing";
+      normalizeDraftRanking(tournament);
+      tournament.updatedAt = Date.now();
+      saveState();
+      render();
+    });
+
     document.getElementById("finish-round")?.addEventListener("click", () => {
       const draft = tournament.currentRoundDraft;
       const normalized = normalizeRankingGroups(draft.rankingGroups, currentPlayerIds(tournament));
