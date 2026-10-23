@@ -493,9 +493,6 @@ function renderHomeView() {
               <button type="button" class="btn btn-sm btn-primary open-tournament" data-id="${escapeHtml(
                 tournament.id
               )}">${t("openTournament")}</button>
-              <button type="button" class="btn btn-sm btn-outline-secondary edit-tournament" data-id="${escapeHtml(
-                tournament.id
-              )}">${t("editTournament")}</button>
               <button type="button" class="btn btn-sm btn-outline-danger delete-tournament" data-id="${escapeHtml(
                 tournament.id
               )}">${t("deleteTournament")}</button>
@@ -933,14 +930,6 @@ function attachHomeListeners() {
       event.stopPropagation();
       openTournamentView(button.dataset.id);
       saveState();
-      render();
-    });
-  });
-
-  document.querySelectorAll(".edit-tournament").forEach((button) => {
-    button.addEventListener("click", (event) => {
-      event.stopPropagation();
-      openSetupView("edit", button.dataset.id, "home");
       render();
     });
   });

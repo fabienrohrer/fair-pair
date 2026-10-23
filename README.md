@@ -18,7 +18,7 @@ The app does **not** compute match winners, points, or Swiss standings. The orga
 
 ## Features
 
-- **Tournament setup and root management:** create/open/edit/delete tournaments from a home grid. Tournament setup only requires a name and the player list.
+- **Tournament setup and root management:** create/open/delete tournaments from a home grid. Tournament setup only requires a name and the player list.
 - **Manual-first pairing workflow:** before each round, the organizer fills every table slot manually by drag-and-drop from a player pool.
 - **Automatic pairing assistant (optional):** inside the pairing view, a dedicated panel lets the organizer choose:
   - mode: random or automatic,
@@ -30,7 +30,6 @@ The app does **not** compute match winners, points, or Swiss standings. The orga
 - **Reversible round navigation:** while a round draft is active, the organizer can go back from ranking to pairing without losing draft data, or return to tournament view (with confirmation to discard the draft).
 - **Clear round context:** pairing and ranking screens prominently display the current round number and active step.
 - **No score computation:** the app never stores points/wins/losses and never derives ranking from match results.
-- **Reversible local workflow:** setup edits that change players require confirmation before invalidating existing rounds.
 - **Automatic persistence:** complete app state is stored in `localStorage` after every change.
 - **Centralized in-app notifications:** validation and success feedback use a non-blocking stacked notification UI.
 - **Internationalization:** English and French are supported; default language follows browser language.
