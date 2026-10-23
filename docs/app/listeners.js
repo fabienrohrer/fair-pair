@@ -78,6 +78,19 @@ function normalizeDraftRanking(tournament) {
   }
 }
 
+function commitTournamentChange(tournament, saveState, render, mutate) {
+  mutate();
+  tournament.updatedAt = Date.now();
+  saveState();
+  render();
+}
+
+function touchTournament(tournament, saveState, render) {
+  tournament.updatedAt = Date.now();
+  saveState();
+  render();
+}
+
 function attachPairingDnD(tournament, { saveState, render }) {
   const draft = tournament.currentRoundDraft;
   document.querySelectorAll('[draggable="true"][data-drag-type="pairing"]').forEach((chip) => {
@@ -110,9 +123,7 @@ function attachPairingDnD(tournament, { saveState, render }) {
           slot: zone.dataset.slot,
         });
       }
-      tournament.updatedAt = Date.now();
-      saveState();
-      render();
+      touchTournament(tournament, saveState, render);
     });
   });
 }
@@ -135,9 +146,7 @@ function attachRankingDnD(tournament, { saveState, render }) {
       }
       const playerId = event.dataTransfer.getData("text/plain");
       assignPlayerToRankingGroup(draft, playerId, Number(zone.dataset.rankIndex));
-      tournament.updatedAt = Date.now();
-      saveState();
-      render();
+      touchTournament(tournament, saveState, render);
     });
   });
 
@@ -151,9 +160,7 @@ function attachRankingDnD(tournament, { saveState, render }) {
     }
     const playerId = event.dataTransfer.getData("text/plain");
     removePlayerFromRankingDraft(draft, playerId);
-    tournament.updatedAt = Date.now();
-    saveState();
-    render();
+    touchTournament(tournament, saveState, render);
   });
 }
 
@@ -310,7 +317,6 @@ export function attachSetupListeners({
 }
 
 export function attachTournamentListeners({
-  state,
   t,
   saveState,
   render,
@@ -329,10 +335,9 @@ export function attachTournamentListeners({
   });
 
   document.getElementById("prepare-round")?.addEventListener("click", () => {
-    tournament.currentRoundDraft = createRoundDraft(currentPlayerIds(tournament));
-    tournament.updatedAt = Date.now();
-    saveState();
-    render();
+    commitTournamentChange(tournament, saveState, render, () => {
+      tournament.currentRoundDraft = createRoundDraft(currentPlayerIds(tournament));
+    });
   });
 
   if (tournament.currentRoundDraft?.phase === "pairing") {
@@ -342,18 +347,16 @@ export function attachTournamentListeners({
       if (!window.confirm(t("confirmDiscardDraft"))) {
         return;
       }
-      tournament.currentRoundDraft = null;
-      tournament.updatedAt = Date.now();
-      saveState();
-      render();
+      commitTournamentChange(tournament, saveState, render, () => {
+        tournament.currentRoundDraft = null;
+      });
     });
 
     document.getElementById("auto-mode")?.addEventListener("change", (event) => {
       const draft = tournament.currentRoundDraft;
-      draft.autoOptions.mode = event.target.value;
-      tournament.updatedAt = Date.now();
-      saveState();
-      render();
+      commitTournamentChange(tournament, saveState, render, () => {
+        draft.autoOptions.mode = event.target.value;
+      });
     });
 
     document.getElementById("try-auto-pairing")?.addEventListener("click", () => {
@@ -384,20 +387,18 @@ export function attachTournamentListeners({
         freshSlots[index].a = match.a;
         freshSlots[index].b = match.b;
       });
-      draft.pairing.tables = freshSlots;
-      draft.pairing.byePlayerId = proposal.byePlayerId;
-      tournament.updatedAt = Date.now();
-      saveState();
-      render();
+      commitTournamentChange(tournament, saveState, render, () => {
+        draft.pairing.tables = freshSlots;
+        draft.pairing.byePlayerId = proposal.byePlayerId;
+      });
     });
 
     document.getElementById("clear-pairing")?.addEventListener("click", () => {
       const draft = tournament.currentRoundDraft;
-      draft.pairing.tables = createEmptyPairingSlots(tournament.players.length);
-      draft.pairing.byePlayerId = null;
-      tournament.updatedAt = Date.now();
-      saveState();
-      render();
+      commitTournamentChange(tournament, saveState, render, () => {
+        draft.pairing.tables = createEmptyPairingSlots(tournament.players.length);
+        draft.pairing.byePlayerId = null;
+      });
     });
 
     document.getElementById("start-round")?.addEventListener("click", () => {
@@ -411,11 +412,10 @@ export function attachTournamentListeners({
         notify(t("invalidPairing"), { variant: "danger" });
         return;
       }
-      draft.phase = "ranking";
-      normalizeDraftRanking(tournament);
-      tournament.updatedAt = Date.now();
-      saveState();
-      render();
+      commitTournamentChange(tournament, saveState, render, () => {
+        draft.phase = "ranking";
+        normalizeDraftRanking(tournament);
+      });
     });
   }
 
@@ -424,11 +424,10 @@ export function attachTournamentListeners({
 
     document.getElementById("back-to-pairing")?.addEventListener("click", () => {
       const draft = tournament.currentRoundDraft;
-      draft.phase = "pairing";
-      normalizeDraftRanking(tournament);
-      tournament.updatedAt = Date.now();
-      saveState();
-      render();
+      commitTournamentChange(tournament, saveState, render, () => {
+        draft.phase = "pairing";
+        normalizeDraftRanking(tournament);
+      });
     });
 
     document.getElementById("finish-round")?.addEventListener("click", () => {
@@ -439,16 +438,15 @@ export function attachTournamentListeners({
         notify(t("invalidRanking"), { variant: "danger" });
         return;
       }
-      tournament.rounds.push({
-        byePlayerId: draft.pairing.byePlayerId || null,
-        matches: draft.pairing.tables.map((table) => ({ a: table.a, b: table.b })),
-        rankingGroups: normalized,
+      commitTournamentChange(tournament, saveState, render, () => {
+        tournament.rounds.push({
+          byePlayerId: draft.pairing.byePlayerId || null,
+          matches: draft.pairing.tables.map((table) => ({ a: table.a, b: table.b })),
+          rankingGroups: normalized,
+        });
+        tournament.rankingGroups = normalized;
+        tournament.currentRoundDraft = null;
       });
-      tournament.rankingGroups = normalized;
-      tournament.currentRoundDraft = null;
-      tournament.updatedAt = Date.now();
-      saveState();
-      render();
       notify(t("roundSaved"), { variant: "success" });
     });
   }

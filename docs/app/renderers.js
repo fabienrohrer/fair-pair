@@ -399,12 +399,11 @@ function renderRankingDraft(tournament, t, getPlayerName) {
   while (normalized.length < tournament.players.length) {
     normalized.push([]);
   }
-  draft.rankingGroups = normalized;
 
-  const allRanked = new Set(flattenRankingGroups(draft.rankingGroups));
+  const allRanked = new Set(flattenRankingGroups(normalized));
   const unranked = currentPlayerIds(tournament).filter((playerId) => !allRanked.has(playerId));
 
-  const rows = draft.rankingGroups
+  const rows = normalized
     .map((group, index) => {
       const players = group
         .map((playerId) => renderPlayerChip(tournament, playerId, "ranking", `rank-${index}`, getPlayerName))

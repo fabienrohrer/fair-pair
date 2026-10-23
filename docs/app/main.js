@@ -20,7 +20,6 @@ const uiState = {
   setupMode: "create",
   setupTournamentId: null,
   setupReturnView: "home",
-  selectedTournamentId: null,
   notifications: [],
 };
 
@@ -39,6 +38,9 @@ function loadState() {
 
 const state = loadState();
 const root = document.getElementById("app");
+if (!root) {
+  throw new Error("Expected #app root element.");
+}
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -62,7 +64,6 @@ function getPlayerName(tournament, playerId) {
 
 function selectTournament(tournamentId) {
   const selectedId = selectDefaultTournamentId(state.tournaments, tournamentId);
-  uiState.selectedTournamentId = selectedId;
   state.selectedTournamentId = selectedId;
 }
 
@@ -164,7 +165,6 @@ function render() {
     });
   } else if (uiState.view === "tournament") {
     attachTournamentListeners({
-      state,
       t,
       saveState,
       render,
