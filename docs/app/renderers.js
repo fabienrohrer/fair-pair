@@ -64,13 +64,25 @@ function getPairingUnassignedIds(tournament) {
   return currentPlayerIds(tournament).filter((id) => !assignedSet.has(id));
 }
 
-function getPlayerColorStyle(playerId) {
+function fallbackHueFromPlayerId(playerId) {
   const safe = `${playerId}`;
   let hash = 0;
   for (let index = 0; index < safe.length; index += 1) {
     hash = safe.charCodeAt(index) + ((hash << 5) - hash);
   }
-  const hue = Math.abs(hash) % 360;
+  return Math.abs(hash) % 360;
+}
+
+function getPlayerHue(tournament, playerId) {
+  const playerHue = tournament.players.find((player) => player.id === playerId)?.hue;
+  if (Number.isFinite(playerHue)) {
+    const normalized = Math.round(playerHue) % 360;
+    return normalized < 0 ? normalized + 360 : normalized;
+  }
+  return fallbackHueFromPlayerId(playerId);
+}
+
+function getPlayerColorStyle(hue) {
   const start = (hue + 18) % 360;
   const end = (hue + 86) % 360;
   return {
@@ -81,7 +93,7 @@ function getPlayerColorStyle(playerId) {
 }
 
 function renderPlayerChip(tournament, playerId, dragType, origin, getPlayerName) {
-  const palette = getPlayerColorStyle(playerId);
+  const palette = getPlayerColorStyle(getPlayerHue(tournament, playerId));
   return `
     <button
       type="button"

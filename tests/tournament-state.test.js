@@ -21,6 +21,10 @@ test("createTournamentFromForm initializes ranking and draft state", () => {
     playerNames: ["Alice", "Bob", "Claire"],
   });
   assert.equal(tournament.players.length, 3);
+  tournament.players.forEach((player) => {
+    assert.equal(typeof player.hue, "number");
+    assert.ok(player.hue >= 0 && player.hue <= 359);
+  });
   assert.deepEqual(tournament.rankingGroups, [["p1"], ["p2"], ["p3"]]);
   assert.equal(tournament.currentRoundDraft, null);
 });
@@ -106,6 +110,10 @@ test("applyTournamentEdits resets rounds and ranking when requested", () => {
   );
   assert.equal(updated.rounds.length, 0);
   assert.equal(updated.currentRoundDraft, null);
+  updated.players.forEach((player) => {
+    assert.equal(typeof player.hue, "number");
+    assert.ok(player.hue >= 0 && player.hue <= 359);
+  });
   assert.deepEqual(updated.rankingGroups, [["p1"], ["p2"], ["p3"]]);
 });
 
@@ -118,7 +126,7 @@ test("state migration keeps tournaments and upgrades ranking fields", () => {
           id: "legacy",
           name: "Legacy",
           players: [
-            { id: "p1", name: "Alice" },
+            { id: "p1", name: "Alice", hue: 44 },
             { id: "p2", name: "Bob" },
           ],
           rounds: [{ byePlayerId: null, matches: [{ a: "p1", b: "p2" }] }],
@@ -131,6 +139,8 @@ test("state migration keeps tournaments and upgrades ranking fields", () => {
   );
   assert.equal(migrated.language, "fr");
   assert.equal(migrated.tournaments.length, 1);
+  assert.equal(migrated.tournaments[0].players[0].hue, 44);
+  assert.equal(typeof migrated.tournaments[0].players[1].hue, "number");
   assert.deepEqual(migrated.tournaments[0].rankingGroups, [["p2"], ["p1"]]);
 });
 

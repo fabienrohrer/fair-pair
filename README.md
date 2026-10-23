@@ -21,6 +21,7 @@ The app does **not** compute match winners, points, or Swiss standings. The orga
 - **Tournament setup and root management:** create/open/delete tournaments from a home grid. Tournament setup only requires a name and the player list.
 - **Manual-first pairing workflow:** before each round, the organizer fills every table slot manually by drag-and-drop from a player pool.
 - **Touch-friendly drag and drop:** pairing and ranking drag-and-drop are designed to work on tablets (touch/pen) and desktop pointer devices.
+- **Persistent player color labels:** each player gets a dedicated color chip when the tournament is created, and keeps that label consistently across pairing and ranking views.
 - **Automatic pairing assistant (optional):** inside the pairing view, a dedicated panel lets the organizer choose:
   - mode: random or automatic,
   - BYE strategy: random eligible or lowest-ranked eligible,

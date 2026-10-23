@@ -6,6 +6,35 @@ export function createPlayerId(index) {
   return `p${index + 1}`;
 }
 
+function normalizeHue(value) {
+  const hue = Number(value);
+  if (!Number.isFinite(hue)) {
+    return null;
+  }
+  const normalized = Math.round(hue) % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function createRainbowHues(playerCount) {
+  if (playerCount <= 0) {
+    return [];
+  }
+  const startHue = Math.floor(Math.random() * 360);
+  const step = 360 / playerCount;
+  return Array.from({ length: playerCount }, (_, index) =>
+    normalizeHue(startHue + index * step)
+  );
+}
+
+function createPlayersWithPersistentHues(playerNames) {
+  const hues = createRainbowHues(playerNames.length);
+  return playerNames.map((playerName, index) => ({
+    id: createPlayerId(index),
+    name: playerName,
+    hue: hues[index],
+  }));
+}
+
 export function createInitialRankingGroups(playerIds) {
   return playerIds.map((id) => [id]);
 }
@@ -55,10 +84,7 @@ export function createRoundDraft(playerIds) {
 }
 
 export function createTournamentFromForm({ id, name, playerNames }) {
-  const players = playerNames.map((playerName, index) => ({
-    id: createPlayerId(index),
-    name: playerName,
-  }));
+  const players = createPlayersWithPersistentHues(playerNames);
   const playerIds = players.map((player) => player.id);
 
   return {
@@ -98,10 +124,7 @@ export function applyTournamentEdits(tournament, formData, { resetRounds }) {
     return updated;
   }
 
-  const players = formData.playerNames.map((playerName, index) => ({
-    id: createPlayerId(index),
-    name: playerName,
-  }));
+  const players = createPlayersWithPersistentHues(formData.playerNames);
   const playerIds = players.map((player) => player.id);
   return {
     ...updated,
@@ -148,9 +171,12 @@ function migrateLegacyRound(round) {
 }
 
 function migrateLegacyTournament(tournament, idFallback = "legacy-1") {
-  const players = (tournament.players || []).map((player, index) => ({
+  const legacyPlayers = tournament.players || [];
+  const fallbackHues = createRainbowHues(legacyPlayers.length);
+  const players = legacyPlayers.map((player, index) => ({
     id: player.id || createPlayerId(index),
     name: player.name || `Player ${index + 1}`,
+    hue: normalizeHue(player.hue) ?? fallbackHues[index],
   }));
   const playerIds = players.map((player) => player.id);
   const baseRanking =
