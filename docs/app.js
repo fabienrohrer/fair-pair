@@ -1,14 +1,30 @@
-import { allResultsEntered, generateRoundPairings, getStandings } from "./pairing.js";
+import {
+  createEmptyPairingSlots,
+  flattenRankingGroups,
+  generatePairingProposal,
+  isValidPairingAssignment,
+} from "./pairing.js";
 import {
   STORAGE_KEY,
   applyTournamentEdits,
   createInitialState,
+  createRoundDraft,
   createTournamentFromForm,
   migrateLoadedState,
   needsRoundReset,
+  normalizeRankingGroups,
   removeTournamentFromCollection,
   selectDefaultTournamentId,
 } from "./tournament-state.js";
+
+const PRIORITY_ORDERS = [
+  ["avoid_rematch", "minimize_gap", "bye_fairness"],
+  ["avoid_rematch", "bye_fairness", "minimize_gap"],
+  ["minimize_gap", "avoid_rematch", "bye_fairness"],
+  ["minimize_gap", "bye_fairness", "avoid_rematch"],
+  ["bye_fairness", "avoid_rematch", "minimize_gap"],
+  ["bye_fairness", "minimize_gap", "avoid_rematch"],
+];
 
 const messages = {
   en: {
@@ -18,62 +34,52 @@ const messages = {
     noTournamentsYet: "No tournaments yet.",
     addTournament: "Add tournament",
     resetAll: "Reset all tournaments",
-    selectedTournament: "Selected tournament",
-    editTournament: "Edit",
+    editTournament: "Modify",
     deleteTournament: "Delete",
-    backToHome: "Back to home",
-    configureTournament: "Edit setup",
+    openTournament: "Open",
     tournamentName: "Tournament name",
+    players: "Players (one per line)",
     setupTitleCreate: "Create tournament",
     setupTitleEdit: "Edit tournament setup",
     createTournament: "Create tournament",
     updateTournament: "Update tournament",
     cancel: "Cancel",
-    pairingMode: "Default pairing mode",
-    modeAutomatic: "Automatic (smart)",
-    modeRandom: "Random",
-    modeManual: "Manual (adjacent after ranking order)",
-    byeStrategy: "BYE strategy",
-    byeLowest: "Lowest-ranked eligible player",
-    byeRandom: "Random eligible player",
-    players: "Players (one per line)",
-    standings: "Standings",
-    rankingEditor: "Ranking order for next round",
-    dragHint: "Drag players to adjust the ranking order used for pairings.",
-    manualByeLabel: "Manual BYE override",
-    none: "None",
-    generateRound: "Generate next round",
-    generatedRound: "Current round",
-    roundHistory: "Round history",
-    editRound: "Edit results",
-    byeLabel: "BYE",
-    player: "Player",
-    points: "Points",
-    wins: "W",
-    draws: "D",
-    losses: "L",
-    byes: "BYE",
-    played: "Played",
-    rank: "Rank",
-    table: "Table",
-    result: "Result",
-    resultPending: "Pending",
-    resultA: "Player A wins",
-    resultB: "Player B wins",
-    resultDraw: "Draw",
-    saveResults: "Save results",
-    roundsCount: "Rounds",
     playersCount: "Players",
+    roundsCount: "Rounds",
+    backToHome: "Back to home",
     setupRequired: "Please enter a tournament name and at least 2 players.",
     duplicatesPlayers: "Player names must be unique (case-insensitive).",
-    roundSaved: "Round saved.",
-    noTournamentSelected: "Select a tournament from the home screen.",
+    prepareRound: "Prepare next round",
+    pairingViewTitle: "Round pairing",
+    rankingViewTitle: "Round ranking",
+    playerPool: "Player pool",
+    tables: "Tables",
+    byeSlot: "BYE",
+    dropPlayer: "Drop player",
+    automaticPairing: "Automatic pairing",
+    mode: "Mode",
+    random: "Random",
+    automatic: "Automatic",
+    byeStrategy: "BYE strategy",
+    byeWorst: "Lowest-ranked eligible",
+    byeRandom: "Random eligible",
+    priorityOrder: "Priority order",
+    tryAutoPairing: "Try",
+    clearPairing: "Clear slots",
+    startRound: "Start round",
+    rankingHelp:
+      "Set the global ranking by drag-and-drop. Players on the same row are tied (draw).",
+    finishRound: "Save round",
+    rankingUnassigned: "Unassigned ranking",
+    roundHistory: "Round history",
     confirmDeleteTournament: "Delete this tournament permanently?",
     confirmResetAll: "Reset all tournaments? This action cannot be undone.",
-    confirmRegenerateAfterEdit:
-      "Updating this round will remove all following rounds. Continue?",
     confirmSetupChange:
-      "Changing settings or players will remove all rounds for this tournament. Continue?",
+      "Changing players will remove all rounds and current draft for this tournament. Continue?",
+    invalidPairing: "Please assign every player exactly once before starting the round.",
+    invalidRanking: "Please rank every player exactly once before saving the round.",
+    roundSaved: "Round saved.",
+    manageSetup: "Edit setup",
   },
   fr: {
     appTitle: "Fair Pair",
@@ -82,67 +88,57 @@ const messages = {
     noTournamentsYet: "Aucun tournoi pour le moment.",
     addTournament: "Ajouter un tournoi",
     resetAll: "Réinitialiser tous les tournois",
-    selectedTournament: "Tournoi sélectionné",
     editTournament: "Modifier",
     deleteTournament: "Supprimer",
-    backToHome: "Retour à l'accueil",
-    configureTournament: "Modifier la configuration",
+    openTournament: "Ouvrir",
     tournamentName: "Nom du tournoi",
+    players: "Joueurs (un par ligne)",
     setupTitleCreate: "Créer un tournoi",
-    setupTitleEdit: "Modifier la configuration du tournoi",
+    setupTitleEdit: "Modifier le setup du tournoi",
     createTournament: "Créer le tournoi",
     updateTournament: "Mettre à jour le tournoi",
     cancel: "Annuler",
-    pairingMode: "Mode d'appariement par défaut",
-    modeAutomatic: "Automatique (intelligent)",
-    modeRandom: "Aléatoire",
-    modeManual: "Manuel (adjacent selon le classement)",
-    byeStrategy: "Stratégie BYE",
-    byeLowest: "Joueur éligible le plus bas classé",
-    byeRandom: "Joueur éligible aléatoire",
-    players: "Joueurs (un par ligne)",
-    standings: "Classement",
-    rankingEditor: "Ordre de classement pour le prochain round",
-    dragHint: "Glissez les joueurs pour ajuster l'ordre utilisé pour les appariements.",
-    manualByeLabel: "BYE manuel",
-    none: "Aucun",
-    generateRound: "Générer le round suivant",
-    generatedRound: "Round en cours",
-    roundHistory: "Historique des rounds",
-    editRound: "Modifier les résultats",
-    byeLabel: "BYE",
-    player: "Joueur",
-    points: "Points",
-    wins: "V",
-    draws: "N",
-    losses: "D",
-    byes: "BYE",
-    played: "Joués",
-    rank: "Rang",
-    table: "Table",
-    result: "Résultat",
-    resultPending: "En attente",
-    resultA: "Victoire joueur A",
-    resultB: "Victoire joueur B",
-    resultDraw: "Nul",
-    saveResults: "Enregistrer les résultats",
-    roundsCount: "Rounds",
     playersCount: "Joueurs",
+    roundsCount: "Rounds",
+    backToHome: "Retour à l'accueil",
     setupRequired: "Veuillez saisir un nom de tournoi et au moins 2 joueurs.",
     duplicatesPlayers: "Les noms de joueurs doivent être uniques (insensible à la casse).",
-    roundSaved: "Round enregistré.",
-    noTournamentSelected: "Sélectionnez un tournoi depuis la page d'accueil.",
+    prepareRound: "Préparer le prochain round",
+    pairingViewTitle: "Appariement du round",
+    rankingViewTitle: "Classement du round",
+    playerPool: "Joueurs à placer",
+    tables: "Tables",
+    byeSlot: "BYE",
+    dropPlayer: "Déposer un joueur",
+    automaticPairing: "Appariement automatique",
+    mode: "Mode",
+    random: "Aléatoire",
+    automatic: "Automatique",
+    byeStrategy: "Stratégie BYE",
+    byeWorst: "Dernier joueur éligible",
+    byeRandom: "Joueur éligible aléatoire",
+    priorityOrder: "Ordre des priorités",
+    tryAutoPairing: "Essayer",
+    clearPairing: "Vider les slots",
+    startRound: "Démarrer le round",
+    rankingHelp:
+      "Définissez le classement global en glisser-déposer. Les joueurs sur la même ligne sont ex aequo.",
+    finishRound: "Enregistrer le round",
+    rankingUnassigned: "Joueurs non classés",
+    roundHistory: "Historique des rounds",
     confirmDeleteTournament: "Supprimer définitivement ce tournoi ?",
     confirmResetAll: "Réinitialiser tous les tournois ? Cette action est irréversible.",
-    confirmRegenerateAfterEdit:
-      "La modification de ce round supprimera les rounds suivants. Continuer ?",
     confirmSetupChange:
-      "Modifier les paramètres ou joueurs supprimera tous les rounds de ce tournoi. Continuer ?",
+      "Modifier les joueurs supprimera tous les rounds et le round en cours. Continuer ?",
+    invalidPairing: "Assignez chaque joueur une seule fois avant de démarrer le round.",
+    invalidRanking: "Classez chaque joueur une seule fois avant d'enregistrer le round.",
+    roundSaved: "Round enregistré.",
+    manageSetup: "Modifier le setup",
   },
 };
 
 const uiState = {
-  currentView: "home",
+  view: "home",
   setupMode: "create",
   setupTournamentId: null,
   setupReturnView: "home",
@@ -159,19 +155,6 @@ function parsePlayersFromText(text) {
     .split("\n")
     .map((value) => value.trim())
     .filter(Boolean);
-}
-
-function parseSetupFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  const players = params.getAll("player").map((name) => name.trim()).filter(Boolean);
-  const bye = params.get("bye");
-  const mode = params.get("mode");
-  return {
-    players,
-    byeStrategy: bye === "random" ? "random" : "lowest",
-    pairingMode:
-      mode === "manual" || mode === "random" || mode === "automatic" ? mode : "automatic",
-  };
 }
 
 function createTournamentId() {
@@ -197,25 +180,18 @@ function loadState() {
     return createInitialState(defaultLanguage);
   }
   try {
-    const parsed = JSON.parse(raw);
-    return migrateLoadedState(parsed, defaultLanguage);
+    return migrateLoadedState(JSON.parse(raw), defaultLanguage);
   } catch {
     return createInitialState(defaultLanguage);
   }
 }
 
-function saveState(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
 const state = loadState();
 const root = document.getElementById("app");
 
-uiState.selectedTournamentId = selectDefaultTournamentId(
-  state.tournaments,
-  state.selectedTournamentId
-);
-state.selectedTournamentId = uiState.selectedTournamentId;
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
 
 function t(key) {
   return messages[state.language][key];
@@ -229,58 +205,22 @@ function getCurrentTournament() {
   return getTournamentById(state.selectedTournamentId);
 }
 
-function selectTournament(tournamentId) {
-  const nextId = selectDefaultTournamentId(state.tournaments, tournamentId);
-  uiState.selectedTournamentId = nextId;
-  state.selectedTournamentId = nextId;
-}
-
-function updateTournament(updatedTournament) {
-  state.tournaments = state.tournaments.map((item) =>
-    item.id === updatedTournament.id ? updatedTournament : item
-  );
-}
-
 function getPlayerName(tournament, playerId) {
   return tournament.players.find((player) => player.id === playerId)?.name || playerId;
 }
 
-function getCurrentEditableRound(tournament) {
-  if (!tournament || tournament.rounds.length === 0) {
-    return null;
-  }
-  if (tournament.editRoundIndex === null) {
-    return tournament.rounds[tournament.rounds.length - 1];
-  }
-  return tournament.rounds[tournament.editRoundIndex] || null;
-}
-
-function updateRankingFromStandings(tournament) {
-  const standings = getStandings(tournament.players, tournament.rounds);
-  const ordered = standings.map((entry) => entry.id);
-  const known = new Set(ordered);
-  for (const id of tournament.rankingOrder) {
-    if (!known.has(id)) {
-      ordered.push(id);
-    }
-  }
-  tournament.rankingOrder = ordered;
-}
-
-function canGenerateNextRound(tournament) {
-  const lastRound = tournament.rounds[tournament.rounds.length - 1];
-  if (!lastRound) {
-    return true;
-  }
-  return allResultsEntered(lastRound);
+function selectTournament(tournamentId) {
+  const selectedId = selectDefaultTournamentId(state.tournaments, tournamentId);
+  uiState.selectedTournamentId = selectedId;
+  state.selectedTournamentId = selectedId;
 }
 
 function openHomeView() {
-  uiState.currentView = "home";
+  uiState.view = "home";
 }
 
-function openSetupView({ mode, tournamentId = null, returnView = "home" }) {
-  uiState.currentView = "setup";
+function openSetupView(mode, tournamentId = null, returnView = "home") {
+  uiState.view = "setup";
   uiState.setupMode = mode;
   uiState.setupTournamentId = tournamentId;
   uiState.setupReturnView = returnView;
@@ -288,41 +228,110 @@ function openSetupView({ mode, tournamentId = null, returnView = "home" }) {
 
 function openTournamentView(tournamentId) {
   selectTournament(tournamentId);
-  uiState.currentView = "tournament";
+  uiState.view = "tournament";
 }
 
-function getSetupDefaults(urlSetup) {
-  if (uiState.setupMode === "edit") {
-    const tournament = getTournamentById(uiState.setupTournamentId);
-    if (!tournament) {
-      return {
-        name: "",
-        playersText: "",
-        pairingMode: "automatic",
-        byeStrategy: "lowest",
-      };
+function getPriorityLabel(priorityOrder) {
+  return priorityOrder
+    .map((value) => {
+      if (value === "avoid_rematch") {
+        return "avoid rematch";
+      }
+      if (value === "minimize_gap") {
+        return "minimize ranking gap";
+      }
+      return "bye fairness";
+    })
+    .join(" → ");
+}
+
+function currentPlayerIds(tournament) {
+  return tournament.players.map((player) => player.id);
+}
+
+function getPairingAssignedIds(draft) {
+  const assigned = [];
+  for (const table of draft.pairing.tables) {
+    if (table.a) {
+      assigned.push(table.a);
     }
-    return {
-      name: tournament.name,
-      playersText: tournament.players.map((player) => player.name).join("\n"),
-      pairingMode: tournament.settings.pairingMode,
-      byeStrategy: tournament.settings.byeStrategy,
-    };
+    if (table.b) {
+      assigned.push(table.b);
+    }
   }
-  if (state.tournaments.length === 0 && urlSetup.players.length > 0) {
-    return {
-      name: "",
-      playersText: urlSetup.players.join("\n"),
-      pairingMode: urlSetup.pairingMode,
-      byeStrategy: urlSetup.byeStrategy,
-    };
+  if (draft.pairing.byePlayerId) {
+    assigned.push(draft.pairing.byePlayerId);
   }
-  return {
-    name: "",
-    playersText: "",
-    pairingMode: "automatic",
-    byeStrategy: "lowest",
-  };
+  return assigned;
+}
+
+function getPairingUnassignedIds(tournament) {
+  const draft = tournament.currentRoundDraft;
+  const assignedSet = new Set(getPairingAssignedIds(draft));
+  return currentPlayerIds(tournament).filter((id) => !assignedSet.has(id));
+}
+
+function removePlayerFromPairing(draft, playerId) {
+  for (const table of draft.pairing.tables) {
+    if (table.a === playerId) {
+      table.a = null;
+    }
+    if (table.b === playerId) {
+      table.b = null;
+    }
+  }
+  if (draft.pairing.byePlayerId === playerId) {
+    draft.pairing.byePlayerId = null;
+  }
+}
+
+function assignPlayerToPairingTarget(draft, playerId, target) {
+  removePlayerFromPairing(draft, playerId);
+  if (target.type === "pool") {
+    return;
+  }
+  if (target.type === "bye") {
+    if (draft.pairing.byePlayerId) {
+      removePlayerFromPairing(draft, draft.pairing.byePlayerId);
+    }
+    draft.pairing.byePlayerId = playerId;
+    return;
+  }
+  const table = draft.pairing.tables[target.tableIndex];
+  if (!table) {
+    return;
+  }
+  const slotKey = target.slot;
+  if (table[slotKey]) {
+    removePlayerFromPairing(draft, table[slotKey]);
+  }
+  table[slotKey] = playerId;
+}
+
+function normalizeDraftRanking(tournament) {
+  const draft = tournament.currentRoundDraft;
+  const ids = currentPlayerIds(tournament);
+  draft.rankingGroups = normalizeRankingGroups(draft.rankingGroups, ids);
+  while (draft.rankingGroups.length < ids.length) {
+    draft.rankingGroups.push([]);
+  }
+}
+
+function removePlayerFromRankingDraft(draft, playerId) {
+  for (const group of draft.rankingGroups) {
+    const index = group.indexOf(playerId);
+    if (index !== -1) {
+      group.splice(index, 1);
+    }
+  }
+}
+
+function assignPlayerToRankingGroup(draft, playerId, targetRankIndex) {
+  removePlayerFromRankingDraft(draft, playerId);
+  if (targetRankIndex < 0 || targetRankIndex >= draft.rankingGroups.length) {
+    return;
+  }
+  draft.rankingGroups[targetRankIndex].push(playerId);
 }
 
 function renderAppBar() {
@@ -333,22 +342,8 @@ function renderAppBar() {
         <div class="d-flex align-items-center gap-2 ms-auto">
           <span class="lang-icon" aria-hidden="true">🌐</span>
           <div class="lang-switcher" role="group" aria-label="${t("language")}">
-            <button
-              type="button"
-              class="lang-btn ${state.language === "en" ? "active" : ""}"
-              data-lang="en"
-              aria-pressed="${state.language === "en"}"
-            >
-              EN
-            </button>
-            <button
-              type="button"
-              class="lang-btn ${state.language === "fr" ? "active" : ""}"
-              data-lang="fr"
-              aria-pressed="${state.language === "fr"}"
-            >
-              FR
-            </button>
+            <button type="button" class="lang-btn ${state.language === "en" ? "active" : ""}" data-lang="en">EN</button>
+            <button type="button" class="lang-btn ${state.language === "fr" ? "active" : ""}" data-lang="fr">FR</button>
           </div>
         </div>
       </div>
@@ -356,28 +351,38 @@ function renderAppBar() {
   `;
 }
 
+function renderPlayerChip(tournament, playerId, dragType, origin = "") {
+  return `
+    <button
+      type="button"
+      class="player-chip"
+      draggable="true"
+      data-drag-type="${dragType}"
+      data-player-id="${escapeHtml(playerId)}"
+      data-origin="${escapeHtml(origin)}"
+    >
+      ${escapeHtml(getPlayerName(tournament, playerId))}
+    </button>
+  `;
+}
+
 function renderHomeView() {
-  const gridItems = state.tournaments
+  const cards = state.tournaments
     .map((tournament) => {
-      const selected = tournament.id === uiState.selectedTournamentId;
-      const tileActions = selected
+      const selected = tournament.id === state.selectedTournamentId;
+      const footer = selected
         ? `
           <div class="card-footer border-top-0 pt-0">
             <div class="d-flex gap-2">
-            <button
-              type="button"
-              class="btn btn-sm btn-primary open-from-tile"
-              data-tournament-id="${escapeHtml(tournament.id)}"
-            >
-              ${t("editTournament")}
-            </button>
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-danger delete-from-tile"
-              data-tournament-id="${escapeHtml(tournament.id)}"
-            >
-              ${t("deleteTournament")}
-            </button>
+              <button type="button" class="btn btn-sm btn-primary open-tournament" data-id="${escapeHtml(
+                tournament.id
+              )}">${t("openTournament")}</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary edit-tournament" data-id="${escapeHtml(
+                tournament.id
+              )}">${t("editTournament")}</button>
+              <button type="button" class="btn btn-sm btn-outline-danger delete-tournament" data-id="${escapeHtml(
+                tournament.id
+              )}">${t("deleteTournament")}</button>
             </div>
           </div>
         `
@@ -385,16 +390,14 @@ function renderHomeView() {
       return `
         <div class="col-12 col-md-6 col-xl-4">
           <div class="card h-100 tournament-tile ${selected ? "tournament-tile-selected" : ""}">
-            <button
-              class="card-body text-start tournament-tile-select"
-              data-tournament-id="${escapeHtml(tournament.id)}"
-              type="button"
-            >
+            <button class="card-body text-start tournament-tile-select" type="button" data-id="${escapeHtml(
+              tournament.id
+            )}">
               <h3 class="h6 mb-2">${escapeHtml(tournament.name)}</h3>
               <p class="small text-muted mb-1">${t("playersCount")}: ${tournament.players.length}</p>
               <p class="small text-muted mb-0">${t("roundsCount")}: ${tournament.rounds.length}</p>
             </button>
-            ${tileActions}
+            ${footer}
           </div>
         </div>
       `;
@@ -402,30 +405,32 @@ function renderHomeView() {
     .join("");
 
   return `
-    <section aria-label="${t("homeTitle")}">
+    <section>
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h1 class="h4 mb-0">${t("homeTitle")}</h1>
         <div class="d-flex gap-2">
           <button id="add-tournament" class="btn btn-primary">+ ${t("addTournament")}</button>
-          <button id="reset-all-tournaments" class="btn btn-outline-danger">${t("resetAll")}</button>
+          <button id="reset-all" class="btn btn-outline-danger">${t("resetAll")}</button>
         </div>
       </div>
       ${
-        gridItems
-          ? `<div class="row g-3">${gridItems}</div>`
+        cards
+          ? `<div class="row g-3">${cards}</div>`
           : `<div class="alert alert-light border">${t("noTournamentsYet")}</div>`
       }
     </section>
   `;
 }
 
-function renderSetupView(urlSetup) {
-  const defaults = getSetupDefaults(urlSetup);
-  const isEditing = uiState.setupMode === "edit";
+function renderSetupView() {
+  const isEdit = uiState.setupMode === "edit";
+  const tournament = isEdit ? getTournamentById(uiState.setupTournamentId) : null;
+  const name = tournament?.name || "";
+  const playersText = tournament ? tournament.players.map((player) => player.name).join("\n") : "";
   return `
-    <section aria-label="${isEditing ? t("setupTitleEdit") : t("setupTitleCreate")}">
+    <section>
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4 mb-0">${isEditing ? t("setupTitleEdit") : t("setupTitleCreate")}</h1>
+        <h1 class="h4 mb-0">${isEdit ? t("setupTitleEdit") : t("setupTitleCreate")}</h1>
         <button id="cancel-setup" class="btn btn-outline-secondary">${t("cancel")}</button>
       </div>
       <div class="card shadow-sm">
@@ -433,43 +438,16 @@ function renderSetupView(urlSetup) {
           <form id="setup-form">
             <div class="mb-3">
               <label for="tournament-name" class="form-label">${t("tournamentName")}</label>
-              <input id="tournament-name" class="form-control" value="${escapeHtml(
-                defaults.name
-              )}" required />
-            </div>
-            <div class="mb-3">
-              <label for="pairing-mode" class="form-label">${t("pairingMode")}</label>
-              <select id="pairing-mode" class="form-select">
-                <option value="automatic" ${defaults.pairingMode === "automatic" ? "selected" : ""}>${t(
-                  "modeAutomatic"
-                )}</option>
-                <option value="random" ${defaults.pairingMode === "random" ? "selected" : ""}>${t(
-                  "modeRandom"
-                )}</option>
-                <option value="manual" ${defaults.pairingMode === "manual" ? "selected" : ""}>${t(
-                  "modeManual"
-                )}</option>
-              </select>
-            </div>
-            <div class="mb-3">
-              <label for="bye-strategy" class="form-label">${t("byeStrategy")}</label>
-              <select id="bye-strategy" class="form-select">
-                <option value="lowest" ${defaults.byeStrategy === "lowest" ? "selected" : ""}>${t(
-                  "byeLowest"
-                )}</option>
-                <option value="random" ${defaults.byeStrategy === "random" ? "selected" : ""}>${t(
-                  "byeRandom"
-                )}</option>
-              </select>
+              <input id="tournament-name" class="form-control" value="${escapeHtml(name)}" required />
             </div>
             <div class="mb-3">
               <label for="players-input" class="form-label">${t("players")}</label>
               <textarea id="players-input" class="form-control" rows="8" required>${escapeHtml(
-                defaults.playersText
+                playersText
               )}</textarea>
             </div>
             <button type="submit" class="btn btn-primary">${
-              isEditing ? t("updateTournament") : t("createTournament")
+              isEdit ? t("updateTournament") : t("createTournament")
             }</button>
           </form>
         </div>
@@ -478,37 +456,185 @@ function renderSetupView(urlSetup) {
   `;
 }
 
-function renderRoundCard(tournament) {
-  const editableRound = getCurrentEditableRound(tournament);
-  if (!editableRound) {
+function renderRoundHistory(tournament) {
+  if (tournament.rounds.length === 0) {
     return "";
   }
-  const roundIndex = tournament.rounds.indexOf(editableRound);
-  const roundNumber = roundIndex + 1;
+  const rows = tournament.rounds
+    .map((round, index) => {
+      const matchesText = round.matches
+        .map((match) => `${getPlayerName(tournament, match.a)} vs ${getPlayerName(tournament, match.b)}`)
+        .join(" · ");
+      const byeText = round.byePlayerId
+        ? ` — ${t("byeSlot")}: ${getPlayerName(tournament, round.byePlayerId)}`
+        : "";
+      return `<li class="list-group-item">#${index + 1} — ${escapeHtml(matchesText + byeText)}</li>`;
+    })
+    .join("");
+  return `
+    <div class="card shadow-sm mt-4">
+      <div class="card-body">
+        <h3 class="h6 mb-3">${t("roundHistory")}</h3>
+        <ul class="list-group">${rows}</ul>
+      </div>
+    </div>
+  `;
+}
 
-  const byeLine = editableRound.byePlayerId
-    ? `<div class="alert alert-light border">${t("byeLabel")}: <strong>${escapeHtml(
-        getPlayerName(tournament, editableRound.byePlayerId)
-      )}</strong></div>`
-    : "";
+function renderRankingSnapshot(tournament) {
+  const rows = tournament.rankingGroups
+    .filter((group) => group.length > 0)
+    .map((group, index) => {
+      const players = group.map((playerId) => escapeHtml(getPlayerName(tournament, playerId))).join(", ");
+      return `<li class="list-group-item"><strong>${index + 1}.</strong> ${players}</li>`;
+    })
+    .join("");
+  return `
+    <div class="card shadow-sm mt-4">
+      <div class="card-body">
+        <h3 class="h6 mb-3">${t("rankingViewTitle")}</h3>
+        <ul class="list-group">${rows}</ul>
+      </div>
+    </div>
+  `;
+}
 
-  const rows = editableRound.matches
-    .map((match, index) => {
-      const value = match.result || "";
+function renderPairingDraft(tournament) {
+  const draft = tournament.currentRoundDraft;
+  const unassigned = getPairingUnassignedIds(tournament);
+  const byeEnabled = tournament.players.length % 2 === 1;
+  const priorityValue = draft.autoOptions.priorityOrder.join("|");
+
+  const tables = draft.pairing.tables
+    .map((table, index) => {
+      const aContent = table.a
+        ? renderPlayerChip(tournament, table.a, "pairing", `table-${index}-a`)
+        : `<div class="drop-empty">${t("dropPlayer")}</div>`;
+      const bContent = table.b
+        ? renderPlayerChip(tournament, table.b, "pairing", `table-${index}-b`)
+        : `<div class="drop-empty">${t("dropPlayer")}</div>`;
+
       return `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${escapeHtml(getPlayerName(tournament, match.a))}</td>
-          <td>${escapeHtml(getPlayerName(tournament, match.b))}</td>
-          <td>
-            <select class="form-select form-select-sm result-select" data-match-index="${index}">
-              <option value="" ${value === "" ? "selected" : ""}>${t("resultPending")}</option>
-              <option value="a" ${value === "a" ? "selected" : ""}>${t("resultA")}</option>
-              <option value="b" ${value === "b" ? "selected" : ""}>${t("resultB")}</option>
-              <option value="draw" ${value === "draw" ? "selected" : ""}>${t("resultDraw")}</option>
-            </select>
-          </td>
-        </tr>
+        <div class="card mb-3">
+          <div class="card-body">
+            <h4 class="h6 mb-3">${t("tables")} ${table.tableNumber}</h4>
+            <div class="pairing-slots">
+              <div class="pairing-drop-zone" data-drop-type="slot" data-table-index="${index}" data-slot="a">${aContent}</div>
+              <div class="pairing-drop-zone" data-drop-type="slot" data-table-index="${index}" data-slot="b">${bContent}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  const byeContent = draft.pairing.byePlayerId
+    ? renderPlayerChip(tournament, draft.pairing.byePlayerId, "pairing", "bye")
+    : `<div class="drop-empty">${t("dropPlayer")}</div>`;
+
+  const poolContent =
+    unassigned.map((playerId) => renderPlayerChip(tournament, playerId, "pairing", "pool")).join("") ||
+    `<div class="text-muted small">${t("dropPlayer")}</div>`;
+
+  const priorityOptions = PRIORITY_ORDERS.map(
+    (order) =>
+      `<option value="${order.join("|")}" ${
+        order.join("|") === priorityValue ? "selected" : ""
+      }>${escapeHtml(getPriorityLabel(order))}</option>`
+  ).join("");
+
+  return `
+    <div class="card shadow-sm mt-4">
+      <div class="card-body">
+        <h3 class="h5 mb-3">${t("pairingViewTitle")}</h3>
+        <div class="card mb-3">
+          <div class="card-body pairing-drop-zone" data-drop-type="pool">
+            <h4 class="h6 mb-3">${t("playerPool")}</h4>
+            <div class="player-chip-list">${poolContent}</div>
+          </div>
+        </div>
+        ${tables}
+        ${
+          byeEnabled
+            ? `<div class="card mb-3">
+                <div class="card-body pairing-drop-zone" data-drop-type="bye">
+                  <h4 class="h6 mb-3">${t("byeSlot")}</h4>
+                  ${byeContent}
+                </div>
+              </div>`
+            : ""
+        }
+
+        <div class="card mt-4 auto-pairing-panel">
+          <div class="card-body">
+            <h4 class="h6 mb-3">${t("automaticPairing")}</h4>
+            <div class="row g-2">
+              <div class="col-12 col-md-3">
+                <label class="form-label">${t("mode")}</label>
+                <select id="auto-mode" class="form-select">
+                  <option value="automatic" ${draft.autoOptions.mode === "automatic" ? "selected" : ""}>${t(
+                    "automatic"
+                  )}</option>
+                  <option value="random" ${draft.autoOptions.mode === "random" ? "selected" : ""}>${t(
+                    "random"
+                  )}</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label">${t("byeStrategy")}</label>
+                <select id="auto-bye-strategy" class="form-select">
+                  <option value="worst" ${draft.autoOptions.byeStrategy === "worst" ? "selected" : ""}>${t(
+                    "byeWorst"
+                  )}</option>
+                  <option value="random" ${draft.autoOptions.byeStrategy === "random" ? "selected" : ""}>${t(
+                    "byeRandom"
+                  )}</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">${t("priorityOrder")}</label>
+                <select id="auto-priority-order" class="form-select">${priorityOptions}</select>
+              </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+              <button type="button" id="try-auto-pairing" class="btn btn-outline-primary">${t(
+                "tryAutoPairing"
+              )}</button>
+              <button type="button" id="clear-pairing" class="btn btn-outline-secondary">${t(
+                "clearPairing"
+              )}</button>
+            </div>
+          </div>
+        </div>
+        <button type="button" id="start-round" class="btn btn-primary mt-3">${t("startRound")}</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderRankingDraft(tournament) {
+  const draft = tournament.currentRoundDraft;
+  const normalized = normalizeRankingGroups(draft.rankingGroups, currentPlayerIds(tournament));
+  while (normalized.length < tournament.players.length) {
+    normalized.push([]);
+  }
+  draft.rankingGroups = normalized;
+
+  const allRanked = new Set(flattenRankingGroups(draft.rankingGroups));
+  const unranked = currentPlayerIds(tournament).filter((playerId) => !allRanked.has(playerId));
+
+  const rows = draft.rankingGroups
+    .map((group, index) => {
+      const players = group
+        .map((playerId) => renderPlayerChip(tournament, playerId, "ranking", `rank-${index}`))
+        .join("");
+      return `
+        <li class="list-group-item ranking-drop-zone" data-rank-index="${index}">
+          <div class="d-flex gap-2 align-items-start">
+            <strong class="rank-label">${index + 1}.</strong>
+            <div class="player-chip-list flex-grow-1">${players || `<span class="drop-empty">${t("dropPlayer")}</span>`}</div>
+          </div>
+        </li>
       `;
     })
     .join("");
@@ -516,142 +642,21 @@ function renderRoundCard(tournament) {
   return `
     <div class="card shadow-sm mt-4">
       <div class="card-body">
-        <h3 class="h5">${t("generatedRound")} #${roundNumber}</h3>
-        ${byeLine}
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th>${t("table")}</th>
-                <th>A</th>
-                <th>B</th>
-                <th>${t("result")}</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-        <button id="save-round-results" class="btn btn-success">${t("saveResults")}</button>
-      </div>
-    </div>
-  `;
-}
-
-function renderStandingsCard(tournament) {
-  const standings = getStandings(tournament.players, tournament.rounds);
-  const rows = standings
-    .map(
-      (entry) => `
-      <tr>
-        <td>${entry.rank}</td>
-        <td>${escapeHtml(entry.name)}</td>
-        <td>${entry.displayPoints}</td>
-        <td>${entry.wins}</td>
-        <td>${entry.draws}</td>
-        <td>${entry.losses}</td>
-        <td>${entry.byes}</td>
-        <td>${entry.played}</td>
-      </tr>`
-    )
-    .join("");
-
-  return `
-    <div class="card shadow-sm mt-4">
-      <div class="card-body">
-        <h3 class="h5">${t("standings")}</h3>
-        <div class="table-responsive">
-          <table class="table table-sm">
-            <thead>
-              <tr>
-                <th>${t("rank")}</th>
-                <th>${t("player")}</th>
-                <th>${t("points")}</th>
-                <th>${t("wins")}</th>
-                <th>${t("draws")}</th>
-                <th>${t("losses")}</th>
-                <th>${t("byes")}</th>
-                <th>${t("played")}</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderRankingEditorCard(tournament) {
-  const rankingItems = tournament.rankingOrder
-    .map(
-      (playerId) => `
-      <li class="list-group-item d-flex align-items-center justify-content-between draggable-player"
-          draggable="true"
-          data-player-id="${escapeHtml(playerId)}">
-        <span>${escapeHtml(getPlayerName(tournament, playerId))}</span>
-        <span class="text-muted">⇅</span>
-      </li>`
-    )
-    .join("");
-
-  const options = [`<option value="">${t("none")}</option>`]
-    .concat(
-      tournament.rankingOrder.map(
-        (id) => `<option value="${escapeHtml(id)}">${escapeHtml(getPlayerName(tournament, id))}</option>`
-      )
-    )
-    .join("");
-
-  const disabled = canGenerateNextRound(tournament) ? "" : "disabled";
-
-  return `
-    <div class="card shadow-sm mt-4">
-      <div class="card-body">
-        <h3 class="h5">${t("rankingEditor")}</h3>
-        <p class="text-muted mb-3">${t("dragHint")}</p>
-        <ul id="ranking-list" class="list-group mb-3">${rankingItems}</ul>
-        <div class="row g-2 align-items-end">
-          <div class="col-md-4">
-            <label class="form-label" for="manual-bye">${t("manualByeLabel")}</label>
-            <select id="manual-bye" class="form-select">${options}</select>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label" for="round-mode">${t("pairingMode")}</label>
-            <select id="round-mode" class="form-select">
-              <option value="automatic">${t("modeAutomatic")}</option>
-              <option value="random">${t("modeRandom")}</option>
-              <option value="manual">${t("modeManual")}</option>
-            </select>
-          </div>
-          <div class="col-md-4">
-            <button id="generate-round" class="btn btn-primary w-100" ${disabled}>${t(
-              "generateRound"
-            )}</button>
+        <h3 class="h5 mb-2">${t("rankingViewTitle")}</h3>
+        <p class="text-muted">${t("rankingHelp")}</p>
+        <div class="card mb-3 ranking-unassigned-drop-zone">
+          <div class="card-body">
+            <h4 class="h6 mb-3">${t("rankingUnassigned")}</h4>
+            <div class="player-chip-list">
+              ${
+                unranked.map((playerId) => renderPlayerChip(tournament, playerId, "ranking", "unranked")).join("") ||
+                `<span class="text-muted small">${t("dropPlayer")}</span>`
+              }
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderRoundHistoryCard(tournament) {
-  const entries = tournament.rounds
-    .map((round, index) => {
-      const complete = allResultsEntered(round);
-      return `
-      <li class="list-group-item d-flex justify-content-between align-items-center">
-        <span>Round #${index + 1} ${complete ? "✅" : "⏳"}</span>
-        <button class="btn btn-sm btn-outline-secondary edit-round" data-round-index="${index}">
-          ${t("editRound")}
-        </button>
-      </li>`;
-    })
-    .join("");
-  return `
-    <div class="card shadow-sm mt-4">
-      <div class="card-body">
-        <h3 class="h5">${t("roundHistory")}</h3>
-        <ul class="list-group">${entries}</ul>
+        <ul class="list-group">${rows}</ul>
+        <button type="button" id="finish-round" class="btn btn-primary mt-3">${t("finishRound")}</button>
       </div>
     </div>
   `;
@@ -660,26 +665,44 @@ function renderRoundHistoryCard(tournament) {
 function renderTournamentView() {
   const tournament = getCurrentTournament();
   if (!tournament) {
-    return `<div class="alert alert-light border">${t("noTournamentSelected")}</div>`;
+    return `<div class="alert alert-light border">${t("noTournamentsYet")}</div>`;
   }
-  return `
-    <section aria-label="${escapeHtml(tournament.name)}">
-      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <div>
-          <h1 class="h4 mb-0">${escapeHtml(tournament.name)}</h1>
-          <p class="text-muted mb-0">${t("roundsCount")}: ${tournament.rounds.length}</p>
-        </div>
-        <div class="d-flex gap-2">
-          <button id="back-to-home" class="btn btn-outline-secondary">${t("backToHome")}</button>
-          <button id="edit-current-tournament" class="btn btn-outline-primary">${t(
-            "configureTournament"
-          )}</button>
+
+  const topActions = `
+    <div class="d-flex gap-2">
+      <button id="back-home" class="btn btn-outline-secondary">${t("backToHome")}</button>
+      <button id="edit-setup" class="btn btn-outline-secondary">${t("manageSetup")}</button>
+    </div>
+  `;
+
+  let content = "";
+  if (!tournament.currentRoundDraft) {
+    content = `
+      <div class="card shadow-sm mt-4">
+        <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+          <div>
+            <h3 class="h5 mb-1">${escapeHtml(tournament.name)}</h3>
+            <p class="text-muted mb-0">${t("roundsCount")}: ${tournament.rounds.length}</p>
+          </div>
+          <button id="prepare-round" class="btn btn-primary">${t("prepareRound")}</button>
         </div>
       </div>
-      ${renderRankingEditorCard(tournament)}
-      ${renderRoundCard(tournament)}
-      ${renderStandingsCard(tournament)}
-      ${renderRoundHistoryCard(tournament)}
+      ${renderRankingSnapshot(tournament)}
+      ${renderRoundHistory(tournament)}
+    `;
+  } else if (tournament.currentRoundDraft.phase === "pairing") {
+    content = renderPairingDraft(tournament);
+  } else {
+    content = renderRankingDraft(tournament);
+  }
+
+  return `
+    <section>
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <h1 class="h4 mb-0">${escapeHtml(tournament.name)}</h1>
+        ${topActions}
+      </div>
+      ${content}
     </section>
   `;
 }
@@ -687,12 +710,12 @@ function renderTournamentView() {
 function attachGlobalListeners() {
   document.querySelectorAll(".lang-btn").forEach((button) => {
     button.addEventListener("click", () => {
-      const selectedLanguage = button.dataset.lang === "fr" ? "fr" : "en";
-      if (state.language === selectedLanguage) {
+      const next = button.dataset.lang === "fr" ? "fr" : "en";
+      if (state.language === next) {
         return;
       }
-      state.language = selectedLanguage;
-      saveState(state);
+      state.language = next;
+      saveState();
       render();
     });
   });
@@ -700,162 +723,200 @@ function attachGlobalListeners() {
 
 function attachHomeListeners() {
   document.getElementById("add-tournament")?.addEventListener("click", () => {
-    openSetupView({ mode: "create", returnView: "home" });
+    openSetupView("create");
     render();
   });
-
-  document.getElementById("reset-all-tournaments")?.addEventListener("click", () => {
+  document.getElementById("reset-all")?.addEventListener("click", () => {
     if (!window.confirm(t("confirmResetAll"))) {
       return;
     }
     state.tournaments = [];
-    state.selectedTournamentId = null;
-    uiState.selectedTournamentId = null;
+    selectTournament(null);
     openHomeView();
-    saveState(state);
+    saveState();
     render();
   });
 
   document.querySelectorAll(".tournament-tile-select").forEach((button) => {
     button.addEventListener("click", () => {
-      selectTournament(button.dataset.tournamentId);
-      saveState(state);
+      selectTournament(button.dataset.id);
+      saveState();
       render();
     });
   });
 
-  document.querySelectorAll(".open-from-tile").forEach((button) => {
+  document.querySelectorAll(".open-tournament").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
-      const tournamentId = button.dataset.tournamentId;
-      if (!tournamentId) {
-        return;
-      }
-      openTournamentView(tournamentId);
-      saveState(state);
+      openTournamentView(button.dataset.id);
+      saveState();
       render();
     });
   });
 
-  document.querySelectorAll(".delete-from-tile").forEach((button) => {
+  document.querySelectorAll(".edit-tournament").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
-      const tournamentId = button.dataset.tournamentId;
-      if (!tournamentId) {
-        return;
-      }
+      openSetupView("edit", button.dataset.id, "home");
+      render();
+    });
+  });
+
+  document.querySelectorAll(".delete-tournament").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
       if (!window.confirm(t("confirmDeleteTournament"))) {
         return;
       }
       const updated = removeTournamentFromCollection(
         state.tournaments,
-        tournamentId,
+        button.dataset.id,
         state.selectedTournamentId
       );
       state.tournaments = updated.tournaments;
-      state.selectedTournamentId = updated.selectedTournamentId;
-      uiState.selectedTournamentId = updated.selectedTournamentId;
-      saveState(state);
+      selectTournament(updated.selectedTournamentId);
+      saveState();
       render();
     });
   });
 }
 
 function attachSetupListeners() {
-  const form = document.getElementById("setup-form");
-  if (!form) {
-    return;
-  }
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const name = document.getElementById("tournament-name").value.trim();
-    const playerNames = parsePlayersFromText(document.getElementById("players-input").value);
-    const pairingMode = document.getElementById("pairing-mode").value;
-    const byeStrategy = document.getElementById("bye-strategy").value;
-
-    if (!name || playerNames.length < 2) {
-      window.alert(t("setupRequired"));
-      return;
-    }
-    const uniqueCheck = new Set(playerNames.map((value) => value.toLowerCase()));
-    if (uniqueCheck.size !== playerNames.length) {
-      window.alert(t("duplicatesPlayers"));
-      return;
-    }
-
-    const formData = { name, playerNames, pairingMode, byeStrategy };
-    if (uiState.setupMode === "edit") {
-      const tournament = getTournamentById(uiState.setupTournamentId);
-      if (!tournament) {
-        openHomeView();
-        render();
-        return;
-      }
-      const mustReset = needsRoundReset(tournament, formData);
-      if (mustReset && tournament.rounds.length > 0) {
-        if (!window.confirm(t("confirmSetupChange"))) {
-          return;
-        }
-      }
-      const updated = applyTournamentEdits(tournament, formData, { resetRounds: mustReset });
-      updateTournament(updated);
-      selectTournament(updated.id);
-    } else {
-      const created = createTournamentFromForm({
-        id: createTournamentId(),
-        ...formData,
-      });
-      state.tournaments.push(created);
-      selectTournament(created.id);
-    }
-
-    openTournamentView(state.selectedTournamentId);
-    saveState(state);
-    render();
-  });
-
   document.getElementById("cancel-setup")?.addEventListener("click", () => {
     if (uiState.setupReturnView === "tournament" && state.selectedTournamentId) {
-      uiState.currentView = "tournament";
+      uiState.view = "tournament";
     } else {
       openHomeView();
     }
     render();
   });
+
+  document.getElementById("setup-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const name = document.getElementById("tournament-name").value.trim();
+    const playerNames = parsePlayersFromText(document.getElementById("players-input").value);
+
+    if (!name || playerNames.length < 2) {
+      window.alert(t("setupRequired"));
+      return;
+    }
+    const duplicateCheck = new Set(playerNames.map((value) => value.toLowerCase()));
+    if (duplicateCheck.size !== playerNames.length) {
+      window.alert(t("duplicatesPlayers"));
+      return;
+    }
+
+    if (uiState.setupMode === "edit") {
+      const current = getTournamentById(uiState.setupTournamentId);
+      if (!current) {
+        openHomeView();
+        render();
+        return;
+      }
+      const resetRounds = needsRoundReset(current, { name, playerNames });
+      if (resetRounds && (current.rounds.length > 0 || current.currentRoundDraft)) {
+        if (!window.confirm(t("confirmSetupChange"))) {
+          return;
+        }
+      }
+      const updated = applyTournamentEdits(current, { name, playerNames }, { resetRounds });
+      state.tournaments = state.tournaments.map((item) => (item.id === updated.id ? updated : item));
+      selectTournament(updated.id);
+      if (uiState.setupReturnView === "tournament") {
+        uiState.view = "tournament";
+      } else {
+        openHomeView();
+      }
+    } else {
+      const created = createTournamentFromForm({
+        id: createTournamentId(),
+        name,
+        playerNames,
+      });
+      state.tournaments.push(created);
+      openTournamentView(created.id);
+    }
+    saveState();
+    render();
+  });
+}
+
+function attachPairingDnD(tournament) {
+  const draft = tournament.currentRoundDraft;
+  document.querySelectorAll('[draggable="true"][data-drag-type="pairing"]').forEach((chip) => {
+    chip.addEventListener("dragstart", (event) => {
+      event.dataTransfer.setData("text/plain", chip.dataset.playerId);
+      event.dataTransfer.setData("application/x-fairpair-drag-type", "pairing");
+    });
+  });
+
+  document.querySelectorAll(".pairing-drop-zone").forEach((zone) => {
+    zone.addEventListener("dragover", (event) => event.preventDefault());
+    zone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      if (event.dataTransfer.getData("application/x-fairpair-drag-type") !== "pairing") {
+        return;
+      }
+      const playerId = event.dataTransfer.getData("text/plain");
+      if (!playerId) {
+        return;
+      }
+      const type = zone.dataset.dropType;
+      if (type === "pool") {
+        assignPlayerToPairingTarget(draft, playerId, { type: "pool" });
+      } else if (type === "bye") {
+        assignPlayerToPairingTarget(draft, playerId, { type: "bye" });
+      } else {
+        assignPlayerToPairingTarget(draft, playerId, {
+          type: "slot",
+          tableIndex: Number(zone.dataset.tableIndex),
+          slot: zone.dataset.slot,
+        });
+      }
+      tournament.updatedAt = Date.now();
+      saveState();
+      render();
+    });
+  });
 }
 
 function attachRankingDnD(tournament) {
-  const list = document.getElementById("ranking-list");
-  if (!list) {
-    return;
-  }
-  let dragged = null;
+  const draft = tournament.currentRoundDraft;
+  document.querySelectorAll('[draggable="true"][data-drag-type="ranking"]').forEach((chip) => {
+    chip.addEventListener("dragstart", (event) => {
+      event.dataTransfer.setData("text/plain", chip.dataset.playerId);
+      event.dataTransfer.setData("application/x-fairpair-drag-type", "ranking");
+    });
+  });
 
-  list.querySelectorAll(".draggable-player").forEach((item) => {
-    item.addEventListener("dragstart", () => {
-      dragged = item;
-      item.classList.add("dragging");
-    });
-    item.addEventListener("dragend", () => {
-      item.classList.remove("dragging");
-    });
-    item.addEventListener("dragover", (event) => {
+  document.querySelectorAll(".ranking-drop-zone").forEach((zone) => {
+    zone.addEventListener("dragover", (event) => event.preventDefault());
+    zone.addEventListener("drop", (event) => {
       event.preventDefault();
-    });
-    item.addEventListener("drop", (event) => {
-      event.preventDefault();
-      if (!dragged || dragged === item) {
+      if (event.dataTransfer.getData("application/x-fairpair-drag-type") !== "ranking") {
         return;
       }
-      const draggedId = dragged.dataset.playerId;
-      const targetId = item.dataset.playerId;
-      const order = tournament.rankingOrder.filter((id) => id !== draggedId);
-      const targetIndex = order.indexOf(targetId);
-      order.splice(targetIndex, 0, draggedId);
-      tournament.rankingOrder = order;
-      saveState(state);
+      const playerId = event.dataTransfer.getData("text/plain");
+      assignPlayerToRankingGroup(draft, playerId, Number(zone.dataset.rankIndex));
+      tournament.updatedAt = Date.now();
+      saveState();
       render();
     });
+  });
+
+  document.querySelector(".ranking-unassigned-drop-zone")?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+  });
+  document.querySelector(".ranking-unassigned-drop-zone")?.addEventListener("drop", (event) => {
+    event.preventDefault();
+    if (event.dataTransfer.getData("application/x-fairpair-drag-type") !== "ranking") {
+      return;
+    }
+    const playerId = event.dataTransfer.getData("text/plain");
+    removePlayerFromRankingDraft(draft, playerId);
+    tournament.updatedAt = Date.now();
+    saveState();
+    render();
   });
 }
 
@@ -864,160 +925,135 @@ function attachTournamentListeners() {
   if (!tournament) {
     return;
   }
-  const roundMode = document.getElementById("round-mode");
-  if (roundMode) {
-    roundMode.value = tournament.settings.pairingMode;
+
+  document.getElementById("back-home")?.addEventListener("click", () => {
+    openHomeView();
+    render();
+  });
+
+  document.getElementById("edit-setup")?.addEventListener("click", () => {
+    openSetupView("edit", tournament.id, "tournament");
+    render();
+  });
+
+  document.getElementById("prepare-round")?.addEventListener("click", () => {
+    tournament.currentRoundDraft = createRoundDraft(currentPlayerIds(tournament));
+    tournament.updatedAt = Date.now();
+    saveState();
+    render();
+  });
+
+  if (tournament.currentRoundDraft?.phase === "pairing") {
+    attachPairingDnD(tournament);
+
+    document.getElementById("try-auto-pairing")?.addEventListener("click", () => {
+      const draft = tournament.currentRoundDraft;
+      draft.autoOptions.mode = document.getElementById("auto-mode").value;
+      draft.autoOptions.byeStrategy = document.getElementById("auto-bye-strategy").value;
+      draft.autoOptions.priorityOrder = document
+        .getElementById("auto-priority-order")
+        .value.split("|");
+
+      const proposal = generatePairingProposal({
+        players: tournament.players,
+        rounds: tournament.rounds,
+        rankingGroups: tournament.rankingGroups,
+        mode: draft.autoOptions.mode,
+        byeStrategy: draft.autoOptions.byeStrategy,
+        priorityOrder: draft.autoOptions.priorityOrder,
+        randomSeed: tournament.rounds.length + 1,
+      });
+
+      const freshSlots = createEmptyPairingSlots(tournament.players.length);
+      proposal.matches.forEach((match, index) => {
+        freshSlots[index].a = match.a;
+        freshSlots[index].b = match.b;
+      });
+      draft.pairing.tables = freshSlots;
+      draft.pairing.byePlayerId = proposal.byePlayerId;
+      tournament.updatedAt = Date.now();
+      saveState();
+      render();
+    });
+
+    document.getElementById("clear-pairing")?.addEventListener("click", () => {
+      const draft = tournament.currentRoundDraft;
+      draft.pairing.tables = createEmptyPairingSlots(tournament.players.length);
+      draft.pairing.byePlayerId = null;
+      tournament.updatedAt = Date.now();
+      saveState();
+      render();
+    });
+
+    document.getElementById("start-round")?.addEventListener("click", () => {
+      const draft = tournament.currentRoundDraft;
+      const valid = isValidPairingAssignment({
+        playerIds: currentPlayerIds(tournament),
+        tables: draft.pairing.tables,
+        byePlayerId: draft.pairing.byePlayerId,
+      });
+      if (!valid) {
+        window.alert(t("invalidPairing"));
+        return;
+      }
+      draft.phase = "ranking";
+      normalizeDraftRanking(tournament);
+      tournament.updatedAt = Date.now();
+      saveState();
+      render();
+    });
   }
 
-  document.getElementById("back-to-home")?.addEventListener("click", () => {
-    openHomeView();
-    saveState(state);
-    render();
-  });
-
-  document.getElementById("edit-current-tournament")?.addEventListener("click", () => {
-    openSetupView({
-      mode: "edit",
-      tournamentId: tournament.id,
-      returnView: "tournament",
-    });
-    render();
-  });
-
-  document.getElementById("generate-round")?.addEventListener("click", () => {
-    const current = getCurrentTournament();
-    if (!current || !canGenerateNextRound(current)) {
-      return;
-    }
-    const manualByePlayerId = document.getElementById("manual-bye").value || null;
-    current.settings.pairingMode = document.getElementById("round-mode").value;
-    const mode = current.settings.pairingMode;
-
-    if (mode === "manual") {
-      const matches = [];
-      let ordered = current.rankingOrder.slice();
-      let byePlayerId = null;
-      if (ordered.length % 2 === 1) {
-        byePlayerId = manualByePlayerId || ordered[ordered.length - 1];
-        ordered = ordered.filter((id) => id !== byePlayerId);
+  if (tournament.currentRoundDraft?.phase === "ranking") {
+    attachRankingDnD(tournament);
+    document.getElementById("finish-round")?.addEventListener("click", () => {
+      const draft = tournament.currentRoundDraft;
+      const normalized = normalizeRankingGroups(draft.rankingGroups, currentPlayerIds(tournament));
+      const flattened = flattenRankingGroups(normalized);
+      if (flattened.length !== tournament.players.length) {
+        window.alert(t("invalidRanking"));
+        return;
       }
-      for (let i = 0; i < ordered.length; i += 2) {
-        matches.push({ a: ordered[i], b: ordered[i + 1], result: null });
-      }
-      current.rounds.push({
-        matches,
-        byePlayerId,
+      tournament.rounds.push({
+        byePlayerId: draft.pairing.byePlayerId || null,
+        matches: draft.pairing.tables.map((table) => ({ a: table.a, b: table.b })),
+        rankingGroups: normalized,
       });
-    } else {
-      const generated = generateRoundPairings({
-        players: current.players,
-        orderedPlayerIds: current.rankingOrder,
-        rounds: current.rounds,
-        byeStrategy: current.settings.byeStrategy,
-        mode,
-        manualByePlayerId,
-        randomSeed: current.rounds.length + 1,
-      });
-      current.rounds.push(generated);
-    }
-    current.editRoundIndex = current.rounds.length - 1;
-    current.updatedAt = Date.now();
-    saveState(state);
-    render();
-  });
-
-  document.querySelectorAll(".edit-round").forEach((button) => {
-    button.addEventListener("click", () => {
-      const current = getCurrentTournament();
-      if (!current) {
-        return;
-      }
-      current.editRoundIndex = Number(button.dataset.roundIndex);
-      current.updatedAt = Date.now();
-      saveState(state);
+      tournament.rankingGroups = normalized;
+      tournament.currentRoundDraft = null;
+      tournament.updatedAt = Date.now();
+      saveState();
       render();
+      window.alert(t("roundSaved"));
     });
-  });
-
-  document.querySelectorAll(".result-select").forEach((select) => {
-    select.addEventListener("change", () => {
-      const current = getCurrentTournament();
-      if (!current) {
-        return;
-      }
-      const roundIndex =
-        current.editRoundIndex === null ? current.rounds.length - 1 : current.editRoundIndex;
-      const round = current.rounds[roundIndex];
-      const matchIndex = Number(select.dataset.matchIndex);
-      round.matches[matchIndex].result = select.value || null;
-      current.updatedAt = Date.now();
-      saveState(state);
-      render();
-    });
-  });
-
-  document.getElementById("save-round-results")?.addEventListener("click", () => {
-    const current = getCurrentTournament();
-    if (!current) {
-      return;
-    }
-    const roundIndex =
-      current.editRoundIndex === null ? current.rounds.length - 1 : current.editRoundIndex;
-    const round = current.rounds[roundIndex];
-    if (!allResultsEntered(round)) {
-      window.alert(t("resultPending"));
-      return;
-    }
-    const hasFutureRounds = roundIndex < current.rounds.length - 1;
-    if (hasFutureRounds) {
-      const confirmed = window.confirm(t("confirmRegenerateAfterEdit"));
-      if (!confirmed) {
-        return;
-      }
-      current.rounds = current.rounds.slice(0, roundIndex + 1);
-    }
-    updateRankingFromStandings(current);
-    current.editRoundIndex = null;
-    current.updatedAt = Date.now();
-    saveState(state);
-    render();
-    window.alert(t("roundSaved"));
-  });
-
-  attachRankingDnD(tournament);
+  }
 }
 
 function render() {
-  const urlSetup = parseSetupFromUrl();
-  let pageContent = "";
-  if (uiState.currentView === "setup") {
-    pageContent = renderSetupView(urlSetup);
-  } else if (uiState.currentView === "tournament") {
-    pageContent = renderTournamentView();
+  let viewContent = "";
+  if (uiState.view === "setup") {
+    viewContent = renderSetupView();
+  } else if (uiState.view === "tournament") {
+    viewContent = renderTournamentView();
   } else {
-    pageContent = renderHomeView();
+    viewContent = renderHomeView();
   }
 
   root.innerHTML = `
     ${renderAppBar()}
-    ${pageContent}
+    ${viewContent}
   `;
+
   attachGlobalListeners();
-  if (uiState.currentView === "setup") {
+  if (uiState.view === "setup") {
     attachSetupListeners();
-  } else if (uiState.currentView === "tournament") {
+  } else if (uiState.view === "tournament") {
     attachTournamentListeners();
   } else {
     attachHomeListeners();
   }
 }
 
-if (state.selectedTournamentId) {
-  selectTournament(state.selectedTournamentId);
-}
-const currentTournament = getCurrentTournament();
-if (currentTournament) {
-  updateRankingFromStandings(currentTournament);
-}
-saveState(state);
+selectTournament(state.selectedTournamentId);
+saveState();
 render();

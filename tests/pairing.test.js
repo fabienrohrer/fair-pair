@@ -2,10 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  allResultsEntered,
-  generateRoundPairings,
+  createEmptyPairingSlots,
+  flattenRankingGroups,
+  generatePairingProposal,
   getByeCounts,
-  getStandings,
+  isValidPairingAssignment,
 } from "../docs/pairing.js";
 
 function makePlayers(count) {
@@ -15,131 +16,162 @@ function makePlayers(count) {
   }));
 }
 
-test("automatic pairing avoids rematches when avoidable", () => {
+test("automatic proposal avoids rematches when avoidable", () => {
   const players = makePlayers(4);
   const rounds = [
     {
       byePlayerId: null,
       matches: [
-        { a: "p1", b: "p2", result: "a" },
-        { a: "p3", b: "p4", result: "b" },
+        { a: "p1", b: "p2" },
+        { a: "p3", b: "p4" },
       ],
+      rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"]],
     },
   ];
-  const round2 = generateRoundPairings({
+
+  const proposal = generatePairingProposal({
     players,
-    orderedPlayerIds: ["p1", "p2", "p3", "p4"],
     rounds,
-    byeStrategy: "lowest",
+    rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"]],
     mode: "automatic",
+    byeStrategy: "worst",
+    priorityOrder: ["avoid_rematch", "minimize_gap", "bye_fairness"],
     randomSeed: 2,
   });
-  const normalized = round2.matches.map((match) => [match.a, match.b].sort().join("-")).sort();
+
+  const normalized = proposal.matches.map((match) => [match.a, match.b].sort().join("-")).sort();
   assert.deepEqual(normalized, ["p1-p3", "p2-p4"]);
 });
 
-test("automatic pairing handles exhausted unique opponents", () => {
-  const players = makePlayers(2);
+test("priority order can prefer ranking gap over rematch when requested", () => {
+  const players = makePlayers(4);
   const rounds = [
     {
       byePlayerId: null,
-      matches: [{ a: "p1", b: "p2", result: "a" }],
+      matches: [
+        { a: "p1", b: "p2" },
+        { a: "p3", b: "p4" },
+      ],
+      rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"]],
     },
   ];
-  const round2 = generateRoundPairings({
+
+  const proposal = generatePairingProposal({
     players,
-    orderedPlayerIds: ["p1", "p2"],
     rounds,
-    byeStrategy: "lowest",
+    rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"]],
     mode: "automatic",
-    randomSeed: 10,
+    byeStrategy: "worst",
+    priorityOrder: ["minimize_gap", "avoid_rematch", "bye_fairness"],
+    randomSeed: 2,
   });
-  assert.equal(round2.matches.length, 1);
-  assert.equal(round2.matches[0].a, "p1");
-  assert.equal(round2.matches[0].b, "p2");
+
+  const normalized = proposal.matches.map((match) => [match.a, match.b].sort().join("-")).sort();
+  assert.deepEqual(normalized, ["p1-p2", "p3-p4"]);
 });
 
-test("bye assignment prioritizes players with the fewest previous BYEs", () => {
+test("worst bye strategy avoids repeating BYE before others receive one", () => {
   const players = makePlayers(5);
   const rounds = [
     {
       byePlayerId: "p5",
       matches: [
-        { a: "p1", b: "p2", result: "draw" },
-        { a: "p3", b: "p4", result: "a" },
+        { a: "p1", b: "p2" },
+        { a: "p3", b: "p4" },
       ],
+      rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"], ["p5"]],
     },
   ];
-  const round2 = generateRoundPairings({
+
+  const proposal = generatePairingProposal({
     players,
-    orderedPlayerIds: ["p1", "p2", "p3", "p4", "p5"],
     rounds,
-    byeStrategy: "lowest",
+    rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"], ["p5"]],
     mode: "automatic",
+    byeStrategy: "worst",
+    priorityOrder: ["avoid_rematch", "minimize_gap", "bye_fairness"],
     randomSeed: 3,
   });
-  assert.notEqual(round2.byePlayerId, "p5");
+
+  assert.notEqual(proposal.byePlayerId, "p5");
 });
 
-test("manual bye override is applied when valid", () => {
+test("manual bye override is respected", () => {
   const players = makePlayers(5);
-  const round = generateRoundPairings({
+  const proposal = generatePairingProposal({
     players,
-    orderedPlayerIds: ["p1", "p2", "p3", "p4", "p5"],
     rounds: [],
-    byeStrategy: "lowest",
+    rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"], ["p5"]],
     mode: "automatic",
+    byeStrategy: "worst",
+    priorityOrder: ["avoid_rematch", "minimize_gap", "bye_fairness"],
     manualByePlayerId: "p2",
-    randomSeed: 1,
   });
-  assert.equal(round.byePlayerId, "p2");
+  assert.equal(proposal.byePlayerId, "p2");
 });
 
-test("standings include wins, draws and BYE wins with deterministic ranking", () => {
-  const players = makePlayers(3);
-  const rounds = [
-    {
-      byePlayerId: "p3",
-      matches: [{ a: "p1", b: "p2", result: "draw" }],
-    },
-    {
-      byePlayerId: "p2",
-      matches: [{ a: "p1", b: "p3", result: "a" }],
-    },
-  ];
-  const standings = getStandings(players, rounds);
-  assert.equal(standings[0].id, "p1");
-  assert.equal(standings[0].points, 1.5);
-  assert.equal(standings[1].id, "p2");
-  assert.equal(standings[1].points, 1.5);
-  assert.equal(standings[2].id, "p3");
-  assert.equal(standings[2].points, 1);
-  assert.equal(standings[0].rank, 1);
-  assert.equal(standings[1].rank, 1);
+test("random mode still returns valid pair list", () => {
+  const players = makePlayers(6);
+  const proposal = generatePairingProposal({
+    players,
+    rounds: [],
+    rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"], ["p5"], ["p6"]],
+    mode: "random",
+    byeStrategy: "random",
+    priorityOrder: ["avoid_rematch", "minimize_gap", "bye_fairness"],
+    randomSeed: 7,
+  });
+  assert.equal(proposal.matches.length, 3);
+  const seen = new Set();
+  proposal.matches.forEach((match) => {
+    seen.add(match.a);
+    seen.add(match.b);
+  });
+  assert.equal(seen.size, 6);
 });
 
-test("allResultsEntered validates pending matches", () => {
+test("pairing validation enforces complete unique assignments", () => {
+  const slots = createEmptyPairingSlots(4);
+  slots[0].a = "p1";
+  slots[0].b = "p2";
+  slots[1].a = "p3";
+  slots[1].b = "p4";
   assert.equal(
-    allResultsEntered({
-      matches: [{ a: "p1", b: "p2", result: "draw" }],
+    isValidPairingAssignment({
+      playerIds: ["p1", "p2", "p3", "p4"],
+      tables: slots,
+      byePlayerId: null,
     }),
     true
   );
+
+  slots[1].b = "p1";
   assert.equal(
-    allResultsEntered({
-      matches: [{ a: "p1", b: "p2", result: null }],
+    isValidPairingAssignment({
+      playerIds: ["p1", "p2", "p3", "p4"],
+      tables: slots,
+      byePlayerId: null,
     }),
     false
   );
 });
 
+test("ranking flattening preserves order with ties", () => {
+  assert.deepEqual(flattenRankingGroups([["p1", "p2"], ["p3"], ["p4", "p5"]]), [
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5",
+  ]);
+});
+
 test("bye counters are derived from rounds", () => {
   const players = makePlayers(4);
-  const rounds = [
-    { byePlayerId: "p1", matches: [{ a: "p2", b: "p3", result: "a" }] },
-    { byePlayerId: "p1", matches: [{ a: "p2", b: "p4", result: "a" }] },
-  ];
-  const counts = getByeCounts(players, rounds);
+  const counts = getByeCounts(players, [
+    { byePlayerId: "p1", matches: [{ a: "p2", b: "p3" }], rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"]] },
+    { byePlayerId: "p1", matches: [{ a: "p2", b: "p4" }], rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"]] },
+  ]);
   assert.equal(counts.p1, 2);
   assert.equal(counts.p2, 0);
 });

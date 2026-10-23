@@ -149,6 +149,59 @@ body {
   outline-offset: -2px;
 }
 
+.player-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.player-chip {
+  border: 1px solid #47608f;
+  background: #20324e;
+  color: #eaf0fb;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.85rem;
+  cursor: grab;
+}
+
+.player-chip:active {
+  cursor: grabbing;
+}
+
+.pairing-drop-zone,
+.ranking-drop-zone,
+.ranking-unassigned-drop-zone {
+  border: 1px dashed transparent;
+  border-radius: 0.6rem;
+}
+
+.pairing-drop-zone:hover,
+.ranking-drop-zone:hover,
+.ranking-unassigned-drop-zone:hover {
+  border-color: #3f5e96;
+}
+
+.pairing-slots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.drop-empty {
+  color: var(--fp-text-soft);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.auto-pairing-panel {
+  background: linear-gradient(180deg, #1a2a42 0%, #17263d 100%);
+}
+
+.rank-label {
+  min-width: 1.5rem;
+}
+
 #ranking-list .draggable-player.dragging {
   opacity: 0.55;
 }
