@@ -61,6 +61,69 @@ main {
   color: var(--fp-text-soft) !important;
 }
 
+.fp-hero {
+  border: 1px solid rgba(143, 174, 255, 0.2);
+  border-radius: 1.5rem;
+  padding: clamp(1.3rem, 2vw, 2rem);
+  background: linear-gradient(135deg, rgba(23, 41, 73, 0.96) 0%, rgba(13, 22, 35, 0.96) 100%);
+  box-shadow: 0 1.3rem 2.5rem rgb(4 10 20 / 28%);
+}
+
+.fp-kicker {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.42rem 0.8rem;
+  border: 1px solid rgba(143, 174, 255, 0.28);
+  background: rgba(91, 140, 255, 0.12);
+  color: #dfe9ff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fp-hero-title {
+  margin-top: 1rem;
+  margin-bottom: 0.8rem;
+  font-size: clamp(2.1rem, 4vw, 3.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.05em;
+  font-weight: 800;
+  color: #f8fbff;
+}
+
+.fp-hero-copy {
+  max-width: 38rem;
+  margin-bottom: 1.2rem;
+  color: #d2def7;
+  font-size: 1.03rem;
+  line-height: 1.7;
+}
+
+.fp-hero-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem 1rem;
+}
+
+.fp-hero-point {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #edf4ff;
+  font-weight: 600;
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(143, 174, 255, 0.18);
+  background: rgba(5, 12, 22, 0.18);
+}
+
+.fp-hero-point i {
+  color: #7dd3a6;
+  font-size: 0.9rem;
+}
+
 .fairpair-appbar {
   position: sticky;
   top: 0;
