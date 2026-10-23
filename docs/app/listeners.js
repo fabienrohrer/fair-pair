@@ -430,6 +430,13 @@ export function attachTournamentListeners({
       });
     });
 
+    document.getElementById("reset-ranking")?.addEventListener("click", () => {
+      const draft = tournament.currentRoundDraft;
+      commitTournamentChange(tournament, saveState, render, () => {
+        draft.rankingGroups = currentPlayerIds(tournament).map(() => []);
+      });
+    });
+
     document.getElementById("finish-round")?.addEventListener("click", () => {
       const draft = tournament.currentRoundDraft;
       const normalized = normalizeRankingGroups(draft.rankingGroups, currentPlayerIds(tournament));

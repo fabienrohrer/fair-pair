@@ -355,6 +355,21 @@ main {
   min-width: 1.5rem;
 }
 
+.ranking-drop-zone {
+  min-height: 3.25rem;
+}
+
+.ranking-row-content {
+  min-height: 2.5rem;
+}
+
+.ranking-row-slot {
+  border: 1px dashed rgba(141, 166, 224, 0.35);
+  border-radius: 0.55rem;
+  background: rgba(11, 18, 32, 0.2);
+  padding: 0.4rem 0.5rem;
+}
+
 #ranking-list .draggable-player.dragging {
   opacity: 0.55;
 }

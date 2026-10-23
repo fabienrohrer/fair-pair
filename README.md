@@ -27,6 +27,7 @@ The app does **not** compute match winners, points, or Swiss standings. The orga
   Pressing **Try** fills table slots automatically, but the organizer can still edit everything manually.
 - **Round start gate:** a round can start only when every player is assigned exactly once across tables + optional BYE.
 - **Manual ranking workflow:** after starting a round, the organizer sets global ranking as vertical ranks with ties (multiple players on the same rank row).
+- **Ranking reset shortcut:** in ranking view, a dedicated reset action clears current ranking placements without leaving the round flow.
 - **Reversible round navigation:** while a round draft is active, the organizer can go back from ranking to pairing without losing draft data, or return to tournament view (with confirmation to discard the draft).
 - **Clear round context:** pairing and ranking screens prominently display the current round number and active step.
 - **No score computation:** the app never stores points/wins/losses and never derives ranking from match results.

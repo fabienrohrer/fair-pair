@@ -57,6 +57,7 @@ export const messages = {
     startRound: "Start round",
     rankingHelp:
       "Set the global ranking by drag-and-drop. Players on the same row are tied (draw).",
+    resetRanking: "Reset ranking",
     finishRound: "Save round",
     rankingUnassigned: "Unassigned ranking",
     roundHistory: "Round history",
@@ -124,6 +125,7 @@ export const messages = {
     startRound: "Démarrer le round",
     rankingHelp:
       "Définissez le classement global en glisser-déposer. Les joueurs sur la même ligne sont ex aequo.",
+    resetRanking: "Réinitialiser le classement",
     finishRound: "Enregistrer le round",
     rankingUnassigned: "Joueurs non classés",
     roundHistory: "Historique des rounds",

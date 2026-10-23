@@ -410,9 +410,11 @@ function renderRankingDraft(tournament, t, getPlayerName) {
         .join("");
       return `
         <li class="list-group-item ranking-drop-zone" data-rank-index="${index}">
-          <div class="d-flex gap-2 align-items-start">
+          <div class="d-flex gap-2 align-items-start ranking-row-content">
             <strong class="rank-label">${index + 1}.</strong>
-            <div class="player-chip-list flex-grow-1">${players || `<span class="drop-empty">${t("dropPlayer")}</span>`}</div>
+            <div class="player-chip-list flex-grow-1 ranking-row-slot">
+              ${players || `<span class="drop-empty">${t("dropPlayer")}</span>`}
+            </div>
           </div>
         </li>
       `;
@@ -442,6 +444,7 @@ function renderRankingDraft(tournament, t, getPlayerName) {
           <button type="button" id="back-to-pairing" class="btn btn-outline-secondary">${t(
             "backToPairing"
           )}</button>
+          <button type="button" id="reset-ranking" class="btn btn-outline-warning">${t("resetRanking")}</button>
           <button type="button" id="finish-round" class="btn btn-primary">${t("finishRound")}</button>
         </div>
       </div>
