@@ -40,6 +40,23 @@ main {
   flex-direction: column;
 }
 
+.fp-notification-stack {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1080;
+  width: min(24rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.fp-notification-stack .alert {
+  pointer-events: auto;
+}
+
+.fp-notification-shadow {
+  box-shadow: 0 0.75rem 1.8rem rgb(1 6 17 / 40%);
+}
+
 .text-muted {
   color: var(--fp-text-soft) !important;
 }

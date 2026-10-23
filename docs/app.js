@@ -30,6 +30,7 @@ const messages = {
   en: {
     appTitle: "Fair Pair",
     language: "Language",
+    closeNotification: "Close notification",
     homeTitle: "Tournaments",
     noTournamentsYet: "No tournaments yet.",
     addTournament: "Add tournament",
@@ -96,6 +97,7 @@ const messages = {
   fr: {
     appTitle: "Fair Pair",
     language: "Langue",
+    closeNotification: "Fermer la notification",
     homeTitle: "Tournois",
     noTournamentsYet: "Aucun tournoi pour le moment.",
     addTournament: "Ajouter un tournoi",
@@ -167,6 +169,14 @@ const uiState = {
   setupTournamentId: null,
   setupReturnView: "home",
   selectedTournamentId: null,
+  notifications: [],
+};
+
+const NOTIFICATION_LIMIT = 5;
+const NOTIFICATION_DEFAULT_DURATION_MS = {
+  danger: 7000,
+  success: 4000,
+  info: 5000,
 };
 
 function detectDefaultLanguage() {
@@ -237,6 +247,45 @@ function selectTournament(tournamentId) {
   const selectedId = selectDefaultTournamentId(state.tournaments, tournamentId);
   uiState.selectedTournamentId = selectedId;
   state.selectedTournamentId = selectedId;
+}
+
+function createNotificationId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `n-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+}
+
+function dismissNotification(notificationId) {
+  const nextNotifications = uiState.notifications.filter((item) => item.id !== notificationId);
+  if (nextNotifications.length === uiState.notifications.length) {
+    return;
+  }
+  uiState.notifications = nextNotifications;
+  render();
+}
+
+function notify(message, options = {}) {
+  if (!message) {
+    return;
+  }
+  const variant = options.variant || "info";
+  const id = createNotificationId();
+  const notification = {
+    id,
+    message,
+    variant,
+  };
+  uiState.notifications = [...uiState.notifications, notification].slice(-NOTIFICATION_LIMIT);
+
+  const autoDismissMs = options.autoDismissMs ?? NOTIFICATION_DEFAULT_DURATION_MS[variant] ?? 5000;
+  if (autoDismissMs > 0) {
+    window.setTimeout(() => {
+      dismissNotification(id);
+    }, autoDismissMs);
+  }
+
+  render();
 }
 
 function openHomeView() {
@@ -817,6 +866,24 @@ function renderTournamentView() {
   `;
 }
 
+function renderNotificationStack() {
+  if (uiState.notifications.length === 0) {
+    return "";
+  }
+  const items = uiState.notifications
+    .map(
+      (notification) => `
+        <div class="alert alert-${escapeHtml(notification.variant)} alert-dismissible fade show fp-notification-shadow mb-2" role="status" aria-live="polite" data-notification-id="${escapeHtml(notification.id)}">
+          ${escapeHtml(notification.message)}
+          <button type="button" class="btn-close" aria-label="${t("closeNotification")}" data-notification-dismiss="${escapeHtml(notification.id)}"></button>
+        </div>
+      `
+    )
+    .join("");
+
+  return `<section class="fp-notification-stack" aria-label="Notifications">${items}</section>`;
+}
+
 function attachGlobalListeners() {
   document.querySelectorAll(".lang-btn").forEach((button) => {
     button.addEventListener("click", () => {
@@ -827,6 +894,12 @@ function attachGlobalListeners() {
       state.language = next;
       saveState();
       render();
+    });
+  });
+
+  document.querySelectorAll("[data-notification-dismiss]").forEach((button) => {
+    button.addEventListener("click", () => {
+      dismissNotification(button.dataset.notificationDismiss);
     });
   });
 }
@@ -907,12 +980,12 @@ function attachSetupListeners() {
     const playerNames = parsePlayersFromText(document.getElementById("players-input").value);
 
     if (!name || playerNames.length < 2) {
-      window.alert(t("setupRequired"));
+      notify(t("setupRequired"), { variant: "danger" });
       return;
     }
     const duplicateCheck = new Set(playerNames.map((value) => value.toLowerCase()));
     if (duplicateCheck.size !== playerNames.length) {
-      window.alert(t("duplicatesPlayers"));
+      notify(t("duplicatesPlayers"), { variant: "danger" });
       return;
     }
 
@@ -1121,7 +1194,7 @@ function attachTournamentListeners() {
         byePlayerId: draft.pairing.byePlayerId,
       });
       if (!valid) {
-        window.alert(t("invalidPairing"));
+        notify(t("invalidPairing"), { variant: "danger" });
         return;
       }
       draft.phase = "ranking";
@@ -1149,7 +1222,7 @@ function attachTournamentListeners() {
       const normalized = normalizeRankingGroups(draft.rankingGroups, currentPlayerIds(tournament));
       const flattened = flattenRankingGroups(normalized);
       if (flattened.length !== tournament.players.length) {
-        window.alert(t("invalidRanking"));
+        notify(t("invalidRanking"), { variant: "danger" });
         return;
       }
       tournament.rounds.push({
@@ -1162,7 +1235,7 @@ function attachTournamentListeners() {
       tournament.updatedAt = Date.now();
       saveState();
       render();
-      window.alert(t("roundSaved"));
+      notify(t("roundSaved"), { variant: "success" });
     });
   }
 }
@@ -1179,6 +1252,7 @@ function render() {
 
   root.innerHTML = `
     ${renderAppBar()}
+    ${renderNotificationStack()}
     ${viewContent}
     <footer class="fairpair-footer mt-4">
       <div class="fairpair-footer-inner">

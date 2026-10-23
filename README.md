@@ -32,6 +32,7 @@ The app does **not** compute match winners, points, or Swiss standings. The orga
 - **No score computation:** the app never stores points/wins/losses and never derives ranking from match results.
 - **Reversible local workflow:** setup edits that change players require confirmation before invalidating existing rounds.
 - **Automatic persistence:** complete app state is stored in `localStorage` after every change.
+- **Centralized in-app notifications:** validation and success feedback use a non-blocking stacked notification UI.
 - **Internationalization:** English and French are supported; default language follows browser language.
 
 ## Technology
