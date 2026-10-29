@@ -1,5 +1,9 @@
 import { flattenRankingGroups } from "../pairing.js";
-import { normalizeRankingGroups } from "../tournament-state.js";
+import {
+  getPairingStageRules,
+  normalizeRankingGroups,
+  resolveAutoPairingMode,
+} from "../tournament-state.js";
 import { buildSwissStandingsData, normalizeSwissSettings } from "../swiss.js";
 import { PRIORITY_ORDERS } from "./constants.js";
 import { escapeHtml } from "./utils.js";
@@ -91,13 +95,13 @@ function getPlayerColorStyle(hue) {
   };
 }
 
-function renderPlayerChip(tournament, playerId, dragType, origin, getPlayerName) {
+function renderPlayerChip(tournament, playerId, dragType, origin, getPlayerName, isDraggable = true) {
   const palette = getPlayerColorStyle(getPlayerHue(tournament, playerId));
   return `
     <button
       type="button"
       class="player-chip"
-      draggable="true"
+      draggable="${isDraggable ? "true" : "false"}"
       data-drag-type="${dragType}"
       data-player-id="${escapeHtml(playerId)}"
       data-origin="${escapeHtml(origin)}"
@@ -400,18 +404,35 @@ function renderPairingDraft(tournament, state, t, getPlayerName) {
   const draft = tournament.currentRoundDraft;
   const unassigned = getPairingUnassignedIds(tournament);
   const byeEnabled = tournament.players.length % 2 === 1;
+  const stageRules = getPairingStageRules(tournament.tournamentType, tournament.rounds.length);
+  const selectedMode = resolveAutoPairingMode(draft.autoOptions.mode, stageRules);
+  const allowManualPairing = stageRules.allowManualPairing;
+  const allowAutoPairingTools = stageRules.allowAutoPairingTools;
   const priorityValue = draft.autoOptions.priorityOrder.join("|");
+  const isAutomaticMode = selectedMode === "automatic";
   const isSwissTournament = tournament.tournamentType === "swiss";
-  const isFirstRound = tournament.rounds.length === 0;
-  const isAutomaticMode = !isSwissTournament && draft.autoOptions.mode === "automatic" && !isFirstRound;
 
   const tables = draft.pairing.tables
     .map((table, index) => {
       const aContent = table.a
-        ? renderPlayerChip(tournament, table.a, "pairing", `table-${index}-a`, getPlayerName)
+        ? renderPlayerChip(
+            tournament,
+            table.a,
+            "pairing",
+            `table-${index}-a`,
+            getPlayerName,
+            allowManualPairing
+          )
         : `<div class="drop-empty">${t("dropPlayer")}</div>`;
       const bContent = table.b
-        ? renderPlayerChip(tournament, table.b, "pairing", `table-${index}-b`, getPlayerName)
+        ? renderPlayerChip(
+            tournament,
+            table.b,
+            "pairing",
+            `table-${index}-b`,
+            getPlayerName,
+            allowManualPairing
+          )
         : `<div class="drop-empty">${t("dropPlayer")}</div>`;
 
       return `
@@ -429,12 +450,21 @@ function renderPairingDraft(tournament, state, t, getPlayerName) {
     .join("");
 
   const byeContent = draft.pairing.byePlayerId
-    ? renderPlayerChip(tournament, draft.pairing.byePlayerId, "pairing", "bye", getPlayerName)
+    ? renderPlayerChip(
+        tournament,
+        draft.pairing.byePlayerId,
+        "pairing",
+        "bye",
+        getPlayerName,
+        allowManualPairing
+      )
     : `<div class="drop-empty">${t("dropPlayer")}</div>`;
 
   const poolContent =
     unassigned
-      .map((playerId) => renderPlayerChip(tournament, playerId, "pairing", "pool", getPlayerName))
+      .map((playerId) =>
+        renderPlayerChip(tournament, playerId, "pairing", "pool", getPlayerName, allowManualPairing)
+      )
       .join("") || `<div class="text-muted small">${t("dropPlayer")}</div>`;
 
   const priorityOptions = PRIORITY_ORDERS.map(
@@ -466,16 +496,45 @@ function renderPairingDraft(tournament, state, t, getPlayerName) {
     `
     : "";
 
-  const showModeSelector = !isSwissTournament && !(isFirstRound && draft.autoOptions.mode === "random");
-  const modeOptions = isFirstRound || isSwissTournament
-    ? `<option value="random" selected>${t("random")}</option>`
+  const modeOptions = stageRules.allowedAutoModes
+    .map((mode) => {
+      const label = mode === "registration" ? t("registrationOrder") : t(mode);
+      const isSelected = selectedMode === mode;
+      return `<option value="${mode}" ${isSelected ? "selected" : ""}>${label}</option>`;
+    })
+    .join("");
+
+  const pairingToolsPanel = allowAutoPairingTools
+    ? `
+        <div class="card mt-4 auto-pairing-panel">
+          <div class="card-body">
+            <h4 class="h6 mb-3">${isSwissTournament ? t("swissPairing") : t("automaticPairing")}</h4>
+            <div class="row g-2">
+              <div class="col-12 col-md-3">
+                <label class="form-label">${t("mode")}</label>
+                <select id="auto-mode" class="form-select">
+                  ${modeOptions}
+                </select>
+              </div>
+            </div>
+            ${automaticSettings}
+            <div class="d-flex gap-2 mt-3">
+              <button type="button" id="try-auto-pairing" class="btn btn-outline-primary">${t(
+                "tryAutoPairing"
+              )}</button>
+              ${
+                allowManualPairing
+                  ? `<button type="button" id="clear-pairing" class="btn btn-outline-secondary">${t(
+                      "clearPairing"
+                    )}</button>`
+                  : ""
+              }
+            </div>
+          </div>
+        </div>
+      `
     : `
-        <option value="automatic" ${draft.autoOptions.mode === "automatic" ? "selected" : ""}>${t(
-          "automatic"
-        )}</option>
-        <option value="random" ${draft.autoOptions.mode === "random" ? "selected" : ""}>${t(
-          "random"
-        )}</option>
+        <div class="alert alert-info mt-4 mb-0">${t("swissPairingLocked")}</div>
       `;
 
   return `
@@ -498,30 +557,7 @@ function renderPairingDraft(tournament, state, t, getPlayerName) {
             : ""
         }
 
-        <div class="card mt-4 auto-pairing-panel">
-          <div class="card-body">
-            <h4 class="h6 mb-3">${isSwissTournament ? "Swiss pairing" : t("automaticPairing")}</h4>
-            ${showModeSelector ? `
-              <div class="row g-2">
-                <div class="col-12 col-md-3">
-                  <label class="form-label">${t("mode")}</label>
-                  <select id="auto-mode" class="form-select">
-                    ${modeOptions}
-                  </select>
-                </div>
-              </div>
-            ` : ""}
-            ${automaticSettings}
-            <div class="d-flex gap-2 mt-3">
-              <button type="button" id="try-auto-pairing" class="btn btn-outline-primary">${t(
-                "tryAutoPairing"
-              )}</button>
-              <button type="button" id="clear-pairing" class="btn btn-outline-secondary">${t(
-                "clearPairing"
-              )}</button>
-            </div>
-          </div>
-        </div>
+        ${pairingToolsPanel}
         <div class="d-flex flex-wrap gap-2 mt-3">
           <button type="button" id="back-to-tournament" class="btn btn-outline-secondary">${t(
             "backToTournament"

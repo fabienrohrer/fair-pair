@@ -5,12 +5,14 @@ import {
   applyTournamentEdits,
   createInitialRankingGroups,
   createInitialState,
+  getPairingStageRules,
   createRoundDraft,
   createTournamentFromForm,
   migrateLoadedState,
   needsRoundReset,
   normalizeRankingGroups,
   removeTournamentFromCollection,
+  resolveAutoPairingMode,
   selectDefaultTournamentId,
 } from "../docs/tournament-state.js";
 
@@ -167,4 +169,35 @@ test("selectDefaultTournamentId and removeTournamentFromCollection stay consiste
 
 test("createInitialRankingGroups returns one player per rank", () => {
   assert.deepEqual(createInitialRankingGroups(["x", "y"]), [["x"], ["y"]]);
+});
+
+test("pairing stage rules enforce swiss lock after round 1", () => {
+  const swissRound1 = getPairingStageRules("swiss", 0);
+  assert.equal(swissRound1.allowManualPairing, true);
+  assert.equal(swissRound1.allowAutoPairingTools, true);
+  assert.deepEqual(swissRound1.allowedAutoModes, ["random", "registration"]);
+
+  const swissRound2 = getPairingStageRules("swiss", 1);
+  assert.equal(swissRound2.allowManualPairing, false);
+  assert.equal(swissRound2.allowAutoPairingTools, false);
+  assert.equal(swissRound2.isLockedSwissRound, true);
+});
+
+test("pairing stage rules keep manual tournaments editable after round 1", () => {
+  const manualRound2 = getPairingStageRules("manual", 1);
+  assert.equal(manualRound2.allowManualPairing, true);
+  assert.equal(manualRound2.allowAutoPairingTools, true);
+  assert.deepEqual(manualRound2.allowedAutoModes, ["automatic", "random"]);
+});
+
+test("resolveAutoPairingMode falls back to first allowed mode", () => {
+  assert.equal(
+    resolveAutoPairingMode("automatic", getPairingStageRules("swiss", 0)),
+    "random"
+  );
+  assert.equal(
+    resolveAutoPairingMode("registration", getPairingStageRules("swiss", 0)),
+    "registration"
+  );
+  assert.equal(resolveAutoPairingMode("random", { allowedAutoModes: [] }), null);
 });

@@ -20,6 +20,38 @@ export function getTournamentTypeConfig(tournamentType) {
   return TOURNAMENT_TYPES[tournamentType] || TOURNAMENT_TYPES.manual;
 }
 
+export function getPairingStageRules(tournamentType, completedRoundsCount = 0) {
+  const normalizedType = getTournamentTypeConfig(tournamentType).id;
+  const roundsCount = Number.isFinite(completedRoundsCount)
+    ? Math.max(0, Math.floor(completedRoundsCount))
+    : 0;
+  const isFirstRound = roundsCount === 0;
+  const isSwissTournament = normalizedType === "swiss";
+  const isLockedSwissRound = isSwissTournament && !isFirstRound;
+  const allowedAutoModes = isFirstRound
+    ? ["random", "registration"]
+    : ["automatic", "random"];
+
+  return {
+    isFirstRound,
+    isLockedSwissRound,
+    allowManualPairing: !isLockedSwissRound,
+    allowAutoPairingTools: !isLockedSwissRound,
+    allowedAutoModes,
+  };
+}
+
+export function resolveAutoPairingMode(mode, stageRules) {
+  const allowedModes = stageRules?.allowedAutoModes;
+  if (!Array.isArray(allowedModes) || allowedModes.length === 0) {
+    return null;
+  }
+  if (allowedModes.includes(mode)) {
+    return mode;
+  }
+  return allowedModes[0];
+}
+
 export function createPlayerId(index) {
   return `p${index + 1}`;
 }

@@ -12,22 +12,22 @@ The app supports manual ranking rounds and a Swiss-system mode where pairings fo
 
 - Manage multiple tournaments locally.
 - Support multiple tournament types:
-  - **Manual ranking rounds:** pair players from the current ranking and set the next order manually.
-  - **Swiss system:** pair players by current score while avoiding rematches, choose a common scoring preset (standard 1/0.5/0 or double points), and track match results round by round.
+  - **Manual ranking rounds:** round 1 uses a special pairing step (manual drag-and-drop, random helper, or registration-order helper). From round 2 onward, pairing remains editable and the organizer can use both random and automatic helpers.
+  - **Swiss system:** round 1 uses the same special pairing step (manual drag-and-drop, random helper, or registration-order helper). From round 2 onward, pairings are generated automatically by the Swiss algorithm and are no longer manually editable.
 - For each round, guide the organizer through a clear flow adapted to the tournament type.
-- Keep pairing helper algorithms available, but always let the organizer override manually.
+- Keep pairing helper algorithms available while respecting each mode's pairing rules.
 
 ## Features
 
 - **Tournament setup and root management:** create/open/delete tournaments from a home grid. Tournament setup only requires a name and the player list.
-- **Manual-first pairing workflow:** before each round, the organizer fills every table slot manually by drag-and-drop from a player pool.
+- **Mode-aware pairing workflow:** round-1 pairing is manual-first in both tournament types, while later rounds follow each mode's rules (editable pairing for manual ranking rounds, locked Swiss pairing from round 2).
 - **Touch-friendly drag and drop:** pairing and ranking drag-and-drop are designed to work on tablets (touch/pen) and desktop pointer devices.
 - **Persistent player color labels:** each player gets a dedicated color chip when the tournament is created, and keeps that label consistently across pairing and ranking views.
 - **Automatic pairing assistant (optional):** inside the pairing view, a dedicated panel lets the organizer choose:
-  - mode: random or automatic,
+  - mode: random, automatic, or registration order (depending on tournament type and current round),
   - BYE strategy: random eligible or lowest-ranked eligible,
   - priority order: any permutation of `avoid rematch`, `minimize ranking gap`, `bye fairness`.
-  Pressing **Try** fills table slots automatically, but the organizer can still edit everything manually.
+  Pressing **Try** fills table slots automatically according to the active mode rules.
 - **Round start gate:** a round can start only when every player is assigned exactly once across tables + optional BYE.
 - **Manual ranking workflow:** after starting a round, the organizer sets global ranking as vertical ranks with ties (multiple players on the same rank row).
 - **Ranking reset shortcut:** in ranking view, a dedicated reset action clears current ranking placements without leaving the round flow.

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   createEmptyPairingSlots,
   flattenRankingGroups,
+  generateRegistrationOrderProposal,
   generatePairingProposal,
   getByeCounts,
   isValidPairingAssignment,
@@ -263,6 +264,30 @@ test("random mode reshuffles the bye as well as all other players", () => {
     first.matches.map((match) => [match.a, match.b].sort().join("-")),
     second.matches.map((match) => [match.a, match.b].sort().join("-"))
   );
+});
+
+test("registration-order proposal pairs players sequentially", () => {
+  const proposal = generateRegistrationOrderProposal({
+    rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"]],
+  });
+
+  assert.equal(proposal.byePlayerId, null);
+  assert.deepEqual(proposal.matches, [
+    { a: "p1", b: "p2" },
+    { a: "p3", b: "p4" },
+  ]);
+});
+
+test("registration-order proposal assigns BYE to last registered player on odd count", () => {
+  const proposal = generateRegistrationOrderProposal({
+    rankingGroups: [["p1"], ["p2"], ["p3"], ["p4"], ["p5"]],
+  });
+
+  assert.equal(proposal.byePlayerId, "p5");
+  assert.deepEqual(proposal.matches, [
+    { a: "p1", b: "p2" },
+    { a: "p3", b: "p4" },
+  ]);
 });
 
 test("swiss settings normalize common chess presets", () => {

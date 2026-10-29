@@ -1,6 +1,7 @@
 import {
   createEmptyPairingSlots,
   flattenRankingGroups,
+  generateRegistrationOrderProposal,
   generatePairingProposal,
   isValidPairingAssignment,
 } from "../pairing.js";
@@ -13,9 +14,11 @@ import {
   applyTournamentEdits,
   createRoundDraft,
   createTournamentFromForm,
+  getPairingStageRules,
   needsRoundReset,
   normalizeRankingGroups,
   removeTournamentFromCollection,
+  resolveAutoPairingMode,
 } from "../tournament-state.js";
 import { createTournamentId, parsePlayersFromText } from "./utils.js";
 import { currentPlayerIds } from "./renderers.js";
@@ -160,7 +163,9 @@ function attachPlayerDragAndDrop({
     });
   });
 
-  document.querySelectorAll(`[data-drag-type="${dragType}"][data-player-id]`).forEach((chip) => {
+  document
+    .querySelectorAll(`[draggable="true"][data-drag-type="${dragType}"][data-player-id]`)
+    .forEach((chip) => {
     chip.addEventListener("pointerdown", (event) => {
       if (event.pointerType !== "touch" && event.pointerType !== "pen") {
         return;
@@ -247,7 +252,7 @@ function attachPlayerDragAndDrop({
       window.addEventListener("pointerup", handlePointerUp, { passive: false });
       window.addEventListener("pointercancel", handlePointerCancel, { passive: false });
     });
-  });
+    });
 }
 
 function attachPairingDnD(tournament, { saveState, render }) {
@@ -498,15 +503,38 @@ export function attachTournamentListeners({
 
   document.getElementById("prepare-round")?.addEventListener("click", () => {
     commitTournamentChange(tournament, saveState, render, () => {
-      tournament.currentRoundDraft = createRoundDraft(
+      const draft = createRoundDraft(
         currentPlayerIds(tournament),
         tournament.tournamentType || "manual"
       );
+      const stageRules = getPairingStageRules(tournament.tournamentType, tournament.rounds.length);
+      if (stageRules.isLockedSwissRound) {
+        const randomSeed = Date.now() + Math.floor(Math.random() * 1000000);
+        const proposal = generateSwissPairingProposal({
+          players: tournament.players,
+          rounds: tournament.rounds,
+          randomSeed,
+          settings: tournament.swissSettings || normalizeSwissSettings(),
+        });
+        const freshSlots = createEmptyPairingSlots(tournament.players.length);
+        proposal.matches.forEach((match, index) => {
+          freshSlots[index].a = match.a;
+          freshSlots[index].b = match.b;
+        });
+        draft.pairing.tables = freshSlots;
+        draft.pairing.byePlayerId = proposal.byePlayerId;
+        draft.autoOptions.randomSeed = randomSeed;
+      }
+      tournament.currentRoundDraft = draft;
     });
   });
 
   if (tournament.currentRoundDraft?.phase === "pairing") {
-    attachPairingDnD(tournament, { saveState, render });
+    const stageRules = getPairingStageRules(tournament.tournamentType, tournament.rounds.length);
+
+    if (stageRules.allowManualPairing) {
+      attachPairingDnD(tournament, { saveState, render });
+    }
 
     document.getElementById("back-to-tournament")?.addEventListener("click", () => {
       if (!window.confirm(t("confirmDiscardDraft"))) {
@@ -517,68 +545,70 @@ export function attachTournamentListeners({
       });
     });
 
-    document.getElementById("auto-mode")?.addEventListener("change", (event) => {
-      const draft = tournament.currentRoundDraft;
-      commitTournamentChange(tournament, saveState, render, () => {
-        draft.autoOptions.mode = event.target.value;
+    if (stageRules.allowAutoPairingTools) {
+      document.getElementById("auto-mode")?.addEventListener("change", (event) => {
+        const draft = tournament.currentRoundDraft;
+        const nextMode = resolveAutoPairingMode(event.target.value, stageRules);
+        if (!nextMode) {
+          return;
+        }
+        commitTournamentChange(tournament, saveState, render, () => {
+          draft.autoOptions.mode = nextMode;
+        });
       });
-    });
 
-    document.getElementById("try-auto-pairing")?.addEventListener("click", () => {
-      const draft = tournament.currentRoundDraft;
-      const selectedMode = document.getElementById("auto-mode")?.value || draft.autoOptions.mode;
-      draft.autoOptions.mode = selectedMode;
-      draft.autoOptions.byeStrategy =
-        document.getElementById("auto-bye-strategy")?.value || draft.autoOptions.byeStrategy;
-      draft.autoOptions.priorityOrder = document.getElementById("auto-priority-order")
-        ? document.getElementById("auto-priority-order").value.split("|")
-        : draft.autoOptions.priorityOrder;
+      document.getElementById("try-auto-pairing")?.addEventListener("click", () => {
+        const draft = tournament.currentRoundDraft;
+        const selectedMode = document.getElementById("auto-mode")?.value || draft.autoOptions.mode;
+        const resolvedMode = resolveAutoPairingMode(selectedMode, stageRules);
+        if (!resolvedMode) {
+          return;
+        }
+        draft.autoOptions.mode = resolvedMode;
+        draft.autoOptions.byeStrategy =
+          document.getElementById("auto-bye-strategy")?.value || draft.autoOptions.byeStrategy;
+        draft.autoOptions.priorityOrder = document.getElementById("auto-priority-order")
+          ? document.getElementById("auto-priority-order").value.split("|")
+          : draft.autoOptions.priorityOrder;
 
-      const nextRandomSeed = Date.now() + Math.floor(Math.random() * 1000000);
-      draft.autoOptions.randomSeed = nextRandomSeed;
+        const nextRandomSeed = Date.now() + Math.floor(Math.random() * 1000000);
+        draft.autoOptions.randomSeed = nextRandomSeed;
 
-      const shouldUseRandomOnly = tournament.rounds.length === 0;
-      const isSwissTournament = tournament.tournamentType === "swiss";
-      const effectiveMode =
-        isSwissTournament || (shouldUseRandomOnly && draft.autoOptions.mode === "automatic")
-          ? "random"
-          : draft.autoOptions.mode;
-
-      const proposal =
-        isSwissTournament
-          ? generateSwissPairingProposal({
-              players: tournament.players,
-              rounds: tournament.rounds,
-              randomSeed: nextRandomSeed,
-              settings: tournament.swissSettings || normalizeSwissSettings(),
-            })
-          : generatePairingProposal({
-              players: tournament.players,
-              rounds: tournament.rounds,
-              rankingGroups: tournament.rankingGroups,
-              mode: effectiveMode,
-              byeStrategy: draft.autoOptions.byeStrategy,
-              priorityOrder: draft.autoOptions.priorityOrder,
-              randomSeed: nextRandomSeed,
-            });
-      const freshSlots = createEmptyPairingSlots(tournament.players.length);
-      proposal.matches.forEach((match, index) => {
-        freshSlots[index].a = match.a;
-        freshSlots[index].b = match.b;
+        const proposal =
+          resolvedMode === "registration"
+            ? generateRegistrationOrderProposal({
+                rankingGroups: tournament.rankingGroups,
+              })
+            : generatePairingProposal({
+                players: tournament.players,
+                rounds: tournament.rounds,
+                rankingGroups: tournament.rankingGroups,
+                mode: resolvedMode,
+                byeStrategy: draft.autoOptions.byeStrategy,
+                priorityOrder: draft.autoOptions.priorityOrder,
+                randomSeed: nextRandomSeed,
+              });
+        const freshSlots = createEmptyPairingSlots(tournament.players.length);
+        proposal.matches.forEach((match, index) => {
+          freshSlots[index].a = match.a;
+          freshSlots[index].b = match.b;
+        });
+        commitTournamentChange(tournament, saveState, render, () => {
+          draft.pairing.tables = freshSlots;
+          draft.pairing.byePlayerId = proposal.byePlayerId;
+        });
       });
-      commitTournamentChange(tournament, saveState, render, () => {
-        draft.pairing.tables = freshSlots;
-        draft.pairing.byePlayerId = proposal.byePlayerId;
-      });
-    });
+    }
 
-    document.getElementById("clear-pairing")?.addEventListener("click", () => {
-      const draft = tournament.currentRoundDraft;
-      commitTournamentChange(tournament, saveState, render, () => {
-        draft.pairing.tables = createEmptyPairingSlots(tournament.players.length);
-        draft.pairing.byePlayerId = null;
+    if (stageRules.allowManualPairing) {
+      document.getElementById("clear-pairing")?.addEventListener("click", () => {
+        const draft = tournament.currentRoundDraft;
+        commitTournamentChange(tournament, saveState, render, () => {
+          draft.pairing.tables = createEmptyPairingSlots(tournament.players.length);
+          draft.pairing.byePlayerId = null;
+        });
       });
-    });
+    }
 
     document.getElementById("start-round")?.addEventListener("click", () => {
       const draft = tournament.currentRoundDraft;

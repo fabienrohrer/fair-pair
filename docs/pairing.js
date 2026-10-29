@@ -204,6 +204,27 @@ function sortPairsByOrder(pairs, orderedPlayerIds) {
   });
 }
 
+export function generateRegistrationOrderProposal({ rankingGroups }) {
+  const orderedPlayerIds = flattenRankingGroups(rankingGroups);
+  let byePlayerId = null;
+  let pairingIds = orderedPlayerIds;
+
+  if (orderedPlayerIds.length % 2 !== 0) {
+    byePlayerId = orderedPlayerIds[orderedPlayerIds.length - 1];
+    pairingIds = orderedPlayerIds.slice(0, -1);
+  }
+
+  const matches = [];
+  for (let index = 0; index < pairingIds.length; index += 2) {
+    matches.push({ a: pairingIds[index], b: pairingIds[index + 1] });
+  }
+
+  return {
+    byePlayerId,
+    matches,
+  };
+}
+
 export function generatePairingProposal({
   players,
   rounds,
