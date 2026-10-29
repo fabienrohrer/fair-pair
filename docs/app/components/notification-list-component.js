@@ -1,6 +1,6 @@
 import { renderNotificationStack } from "../renderers.js";
 
-export const notificationStackComponent = {
+export const notificationListComponent = {
   name: "notification-stack",
   getInitialLocalState() {
     return { collapsed: false };

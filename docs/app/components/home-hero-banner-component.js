@@ -1,4 +1,4 @@
-export const homeHeroComponent = {
+export const homeHeroBannerComponent = {
   name: "home-hero",
   getInitialLocalState() {
     return { collapsed: false };

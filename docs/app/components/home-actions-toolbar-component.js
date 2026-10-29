@@ -1,4 +1,4 @@
-export const homeToolbarComponent = {
+export const homeActionsToolbarComponent = {
   name: "home-toolbar",
   render({ props }) {
     const { t } = props;

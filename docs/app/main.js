@@ -6,12 +6,19 @@ import {
   renderSetupView,
   renderTournamentView,
 } from "./renderers.js";
-import { appBarComponent } from "./components/app-bar-component.js";
-import { appFooterComponent } from "./components/app-footer-component.js";
+import { appHeaderComponent } from "./components/app-header-component.js";
+import { appFooterPanelComponent } from "./components/app-footer-panel-component.js";
 import { bindRenderedComponents, renderComponent } from "./components/core/runtime.js";
-import { homeHeroComponent } from "./components/home-hero-component.js";
-import { homeToolbarComponent } from "./components/home-toolbar-component.js";
-import { notificationStackComponent } from "./components/notification-stack-component.js";
+import { homeEmptyStateComponent } from "./components/home-empty-state-component.js";
+import { homeHeroBannerComponent } from "./components/home-hero-banner-component.js";
+import { homeActionsToolbarComponent } from "./components/home-actions-toolbar-component.js";
+import { notificationListComponent } from "./components/notification-list-component.js";
+import { setupHeaderComponent } from "./components/setup-header-component.js";
+import { setupSwissSettingsComponent } from "./components/setup-swiss-settings-component.js";
+import { setupTypePanelComponent } from "./components/setup-type-panel-component.js";
+import { tournamentEmptyStateComponent } from "./components/tournament-empty-state-component.js";
+import { tournamentHeaderComponent } from "./components/tournament-header-component.js";
+import { tournamentRoundIntroCardComponent } from "./components/tournament-round-intro-card-component.js";
 import {
   attachGlobalListeners,
   attachHomeListeners,
@@ -94,6 +101,18 @@ function openTournamentView(tournamentId) {
   uiState.view = "tournament";
 }
 
+function getSetupSwissViewModel() {
+  const isEdit = uiState.setupMode === "edit";
+  const tournament = isEdit ? getTournamentById(uiState.setupTournamentId) : null;
+  const swissSettings = normalizeSwissSettings(
+    tournament?.swissSettings || uiState.setupSwissConfig || undefined
+  );
+  return {
+    swissSettings,
+    swissSettingsVisible: uiState.setupTournamentType === "swiss",
+  };
+}
+
 function dismissNotification(notificationId) {
   const nextNotifications = uiState.notifications.filter((item) => item.id !== notificationId);
   if (nextNotifications.length === uiState.notifications.length) {
@@ -128,29 +147,102 @@ function notify(message, options = {}) {
 
 function render() {
   const isHomeView = uiState.view === "home";
+  const isSetupView = uiState.view === "setup";
+  const isTournamentView = uiState.view === "tournament";
+
   const homeHeroContent = isHomeView
-    ? renderComponent(homeHeroComponent, {
+    ? renderComponent(homeHeroBannerComponent, {
         key: "home-main-hero",
         props: { t, requestRender: render },
       })
     : "";
   const homeToolbarContent = isHomeView
-    ? renderComponent(homeToolbarComponent, {
+    ? renderComponent(homeActionsToolbarComponent, {
         key: "home-main-toolbar",
         props: { t },
       })
     : "";
+  const homeEmptyStateContent = isHomeView
+    ? renderComponent(homeEmptyStateComponent, {
+        key: "home-main-empty-state",
+        props: { t },
+      })
+    : "";
+  const setupHeaderContent = isSetupView
+    ? renderComponent(setupHeaderComponent, {
+        key: "setup-main-header",
+        props: { t, isEdit: uiState.setupMode === "edit" },
+      })
+    : "";
+  const setupTypePanelContent = isSetupView
+    ? renderComponent(setupTypePanelComponent, {
+        key: "setup-main-type-selector",
+        props: { t, setupTournamentType: uiState.setupTournamentType },
+      })
+    : "";
+  const setupSwissViewModel = isSetupView ? getSetupSwissViewModel() : null;
+  const setupSwissSettingsContent =
+    isSetupView && setupSwissViewModel
+      ? renderComponent(setupSwissSettingsComponent, {
+          key: "setup-main-swiss-settings",
+          props: {
+            t,
+            swissSettingsVisible: setupSwissViewModel.swissSettingsVisible,
+            swissSettings: setupSwissViewModel.swissSettings,
+          },
+        })
+      : "";
+  const tournament = isTournamentView ? getCurrentTournament() : null;
+  const tournamentEmptyStateContent = isTournamentView
+    ? renderComponent(tournamentEmptyStateComponent, {
+        key: "tournament-main-empty-state",
+        props: { t },
+      })
+    : "";
+  const tournamentHeaderContent =
+    isTournamentView && tournament
+      ? renderComponent(tournamentHeaderComponent, {
+          key: `tournament-header-${tournament.id}`,
+          props: { t, tournamentName: tournament.name },
+        })
+      : "";
+  const tournamentRoundIntroContent =
+    isTournamentView && tournament && !tournament.currentRoundDraft
+      ? renderComponent(tournamentRoundIntroCardComponent, {
+          key: `tournament-round-intro-${tournament.id}`,
+          props: {
+            t,
+            tournamentName: tournament.name,
+            roundsCount: tournament.rounds.length,
+          },
+        })
+      : "";
 
   let viewContent = "";
   if (uiState.view === "setup") {
-    viewContent = renderSetupView({ uiState, getTournamentById, t });
+    viewContent = renderSetupView({
+      uiState,
+      getTournamentById,
+      t,
+      setupHeaderContent,
+      setupTypePanelContent,
+      setupSwissSettingsContent,
+    });
   } else if (uiState.view === "tournament") {
-    viewContent = renderTournamentView({ getCurrentTournament, state, t, getPlayerName });
+    viewContent = renderTournamentView({
+      getCurrentTournament,
+      state,
+      t,
+      getPlayerName,
+      tournamentHeaderContent,
+      tournamentRoundIntroContent,
+      tournamentEmptyStateContent,
+    });
   } else {
-    viewContent = renderHomeView({ state, t, homeHeroContent, homeToolbarContent });
+    viewContent = renderHomeView({ state, t, homeHeroContent, homeToolbarContent, homeEmptyStateContent });
   }
 
-  const appBar = renderComponent(appBarComponent, {
+  const appHeader = renderComponent(appHeaderComponent, {
     key: "main",
     props: {
       t,
@@ -165,19 +257,19 @@ function render() {
       },
     },
   });
-  const notificationStack = renderComponent(notificationStackComponent, {
+  const notificationList = renderComponent(notificationListComponent, {
     key: "main",
     props: { uiState, t, requestRender: render },
   });
-  const appFooter = renderComponent(appFooterComponent, {
+  const appFooterPanel = renderComponent(appFooterPanelComponent, {
     key: "main",
   });
 
   root.innerHTML = `
-    ${appBar}
-    ${notificationStack}
+    ${appHeader}
+    ${notificationList}
     ${viewContent}
-    ${appFooter}
+    ${appFooterPanel}
   `;
 
   bindRenderedComponents();

@@ -1,4 +1,4 @@
-export const appFooterComponent = {
+export const appFooterPanelComponent = {
   name: "app-footer",
   render() {
     return `

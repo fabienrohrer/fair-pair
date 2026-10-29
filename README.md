@@ -48,6 +48,7 @@ The app supports manual ranking rounds and a Swiss-system mode where pairings fo
 ## UI architecture note
 
 - Prefer lightweight home-made components from [`docs/app/components/`](/Users/fabien/repos/fair-pair/docs/app/components) built on the local runtime in [`docs/app/components/core/runtime.js`](/Users/fabien/repos/fair-pair/docs/app/components/core/runtime.js).
+- Use explicit UI-suffix naming for components: `*-header-component`, `*-card-component`, `*-panel-component`, `*-banner-component`, `*-toolbar-component`, `*-list-component`, `*-empty-state-component`.
 - Keep tournament/business rules in pure modules ([`docs/pairing.js`](/Users/fabien/repos/fair-pair/docs/pairing.js), [`docs/tournament-state.js`](/Users/fabien/repos/fair-pair/docs/tournament-state.js), [`docs/swiss.js`](/Users/fabien/repos/fair-pair/docs/swiss.js)); components should focus on rendering and UI interactions.
 
 ## Suggested structure
@@ -66,11 +67,23 @@ fair-pair/
     │   ├── constants.js       # i18n messages + UI constants
     │   ├── utils.js           # Shared app utilities
     │   └── components/
-    │       ├── app-bar-component.js
-    │       ├── app-footer-component.js
-    │       ├── notification-stack-component.js
-    │       ├── home-hero-component.js
-    │       ├── home-toolbar-component.js
+    │       ├── app-header-component.js
+    │       ├── app-footer-panel-component.js
+    │       ├── notification-list-component.js
+    │       ├── home-hero-banner-component.js
+    │       ├── home-actions-toolbar-component.js
+    │       ├── home-empty-state-component.js
+    │       ├── setup-header-component.js
+    │       ├── setup-swiss-settings-component.js
+    │       ├── setup-type-panel-component.js
+    │       ├── pairing-tools-panel-component.js
+    │       ├── round-stage-banner-component.js
+    │       ├── round-history-card-component.js
+    │       ├── ranking-snapshot-card-component.js
+    │       ├── swiss-results-table-list-component.js
+    │       ├── tournament-empty-state-component.js
+    │       ├── tournament-header-component.js
+    │       ├── tournament-round-intro-card-component.js
     │       └── core/
     │           └── runtime.js        # Tiny component runtime (render + bind)
     ├── pairing.js             # Pure pairing assistant logic

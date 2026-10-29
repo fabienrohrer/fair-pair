@@ -7,4 +7,5 @@
 - Prioritize correct, fair pairings and test edge cases (rematches, ties, odd player counts, repeated BYEs).
 - Use responsive, accessible Bootstrap components; add custom CSS only when needed.
 - Prefer home-made components from `docs/app/components/` and the local component runtime instead of introducing external component frameworks or abstractions.
+- Name component files with explicit UI intent suffixes (`-header-component`, `-card-component`, `-panel-component`, `-banner-component`, `-toolbar-component`, `-list-component`, `-empty-state-component`).
 - Ask before inventing tournament rules not covered by the README.

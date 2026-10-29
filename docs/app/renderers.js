@@ -4,9 +4,14 @@ import {
   normalizeRankingGroups,
   resolveAutoPairingMode,
 } from "../tournament-state.js";
-import { buildSwissStandingsData, normalizeSwissSettings } from "../swiss.js";
+import { normalizeSwissSettings } from "../swiss.js";
+import { rankingSnapshotCardComponent } from "./components/ranking-snapshot-card-component.js";
 import { PRIORITY_ORDERS } from "./constants.js";
 import { escapeHtml } from "./utils.js";
+import { pairingToolsPanelComponent } from "./components/pairing-tools-panel-component.js";
+import { roundHistoryCardComponent } from "./components/round-history-card-component.js";
+import { roundStageBannerComponent } from "./components/round-stage-banner-component.js";
+import { swissResultsTableListComponent } from "./components/swiss-results-table-list-component.js";
 
 function getPriorityLabel(priorityOrder, language, t) {
   const labels = priorityOrder.map((value) => {
@@ -133,7 +138,13 @@ export function renderAppBar({ t, language }) {
   `;
 }
 
-export function renderHomeView({ state, t, homeHeroContent = "", homeToolbarContent = "" }) {
+export function renderHomeView({
+  state,
+  t,
+  homeHeroContent = "",
+  homeToolbarContent = "",
+  homeEmptyStateContent = "",
+}) {
   const cards = state.tournaments
     .map((tournament) => {
       const selected = tournament.id === state.selectedTournamentId;
@@ -181,28 +192,67 @@ export function renderHomeView({ state, t, homeHeroContent = "", homeToolbarCont
       ${
         cards
           ? `<div class="row g-3">${cards}</div>`
-          : `<div class="alert alert-light border">${t("noTournamentsYet")}</div>`
+          : homeEmptyStateContent || `<div class="alert alert-light border">${t("noTournamentsYet")}</div>`
       }
     </section>
   `;
 }
 
-export function renderSetupView({ uiState, getTournamentById, t }) {
+export function renderSetupView({
+  uiState,
+  getTournamentById,
+  t,
+  setupHeaderContent = "",
+  setupTypePanelContent = "",
+  setupSwissSettingsContent = "",
+}) {
   const isEdit = uiState.setupMode === "edit";
   const tournament = isEdit ? getTournamentById(uiState.setupTournamentId) : null;
   const name = tournament?.name || "";
   const playersText = tournament ? tournament.players.map((player) => player.name).join("\n") : "";
-  const swissSettings = normalizeSwissSettings(
-    tournament?.swissSettings || uiState.setupSwissConfig || undefined
-  );
+  const swissSettings = normalizeSwissSettings(tournament?.swissSettings || uiState.setupSwissConfig || undefined);
   const swissSettingsVisible = uiState.setupTournamentType === "swiss";
+  const swissSettingsContent =
+    setupSwissSettingsContent ||
+    `
+      <div id="swiss-settings-panel" class="card border-0 bg-transparent ${swissSettingsVisible ? "" : "d-none"}">
+        <div class="card-body px-0 pb-0">
+          <h3 class="h6 mb-3">${t("swissOptions")}</h3>
+          <div class="row g-3">
+            <div class="col-12 col-md-5">
+              <label for="swiss-score-mode" class="form-label">${t("swissScoring")}</label>
+              <select id="swiss-score-mode" class="form-select">
+                <option value="standard" ${swissSettings.scoreMode === "standard" ? "selected" : ""}>${t(
+                  "swissScoringStandard"
+                )}</option>
+                <option value="double" ${swissSettings.scoreMode === "double" ? "selected" : ""}>${t(
+                  "swissScoringDouble"
+                )}</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-4">
+              <label for="swiss-bye-policy" class="form-label">${t("swissByePolicy")}</label>
+              <select id="swiss-bye-policy" class="form-select">
+                <option value="lowest_score" ${swissSettings.byeStrategy === "lowest_score" ? "selected" : ""}>${t(
+                  "swissByeLowest"
+                )}</option>
+                <option value="random" ${swissSettings.byeStrategy === "random" ? "selected" : ""}>${t(
+                  "swissByeRandom"
+                )}</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">${t("swissTiebreaker")}</label>
+              <div class="form-control-plaintext text-muted pt-2">${t("swissTiebreakerBuchholz")}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
 
   return `
     <section>
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4 mb-0">${isEdit ? t("setupTitleEdit") : t("setupTitleCreate")}</h1>
-        <button id="cancel-setup" class="btn btn-outline-secondary">${t("cancel")}</button>
-      </div>
+      ${setupHeaderContent}
       <div class="card shadow-sm">
         <div class="card-body">
           <form id="setup-form">
@@ -210,69 +260,8 @@ export function renderSetupView({ uiState, getTournamentById, t }) {
               <label for="tournament-name" class="form-label">${t("tournamentName")}</label>
               <input id="tournament-name" class="form-control" value="${escapeHtml(name)}" required />
             </div>
-            <div class="mb-3">
-              <label class="form-label">${t("tournamentType")}</label>
-              <div class="row g-3 tournament-type-cards">
-                <div class="col-12 col-md-6">
-                  <button
-                    type="button"
-                    class="card tournament-type-option ${uiState.setupTournamentType === "manual" ? "selected" : ""}"
-                    data-tournament-type="manual"
-                  >
-                    <div class="card-body">
-                      <h3 class="h6 mb-2">${t("tournamentTypeManual")}</h3>
-                      <p class="mb-0 small text-muted">${t("tournamentTypeManualDescription")}</p>
-                    </div>
-                  </button>
-                </div>
-                <div class="col-12 col-md-6">
-                  <button
-                    type="button"
-                    class="card tournament-type-option ${uiState.setupTournamentType === "swiss" ? "selected" : ""}"
-                    data-tournament-type="swiss"
-                  >
-                    <div class="card-body">
-                      <h3 class="h6 mb-2">${t("tournamentTypeSwiss")}</h3>
-                      <p class="mb-0 small text-muted">${t("tournamentTypeSwissDescription")}</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-              <input id="tournament-type" type="hidden" value="${escapeHtml(uiState.setupTournamentType || "manual")}" />
-            </div>
-            <div id="swiss-settings-panel" class="card border-0 bg-transparent ${swissSettingsVisible ? "" : "d-none"}">
-              <div class="card-body px-0 pb-0">
-                <h3 class="h6 mb-3">${t("swissOptions")}</h3>
-                <div class="row g-3">
-                  <div class="col-12 col-md-5">
-                    <label for="swiss-score-mode" class="form-label">${t("swissScoring")}</label>
-                    <select id="swiss-score-mode" class="form-select">
-                      <option value="standard" ${swissSettings.scoreMode === "standard" ? "selected" : ""}>${t(
-                        "swissScoringStandard"
-                      )}</option>
-                      <option value="double" ${swissSettings.scoreMode === "double" ? "selected" : ""}>${t(
-                        "swissScoringDouble"
-                      )}</option>
-                    </select>
-                  </div>
-                  <div class="col-12 col-md-4">
-                    <label for="swiss-bye-policy" class="form-label">${t("swissByePolicy")}</label>
-                    <select id="swiss-bye-policy" class="form-select">
-                      <option value="lowest_score" ${swissSettings.byeStrategy === "lowest_score" ? "selected" : ""}>${t(
-                        "swissByeLowest"
-                      )}</option>
-                      <option value="random" ${swissSettings.byeStrategy === "random" ? "selected" : ""}>${t(
-                        "swissByeRandom"
-                      )}</option>
-                    </select>
-                  </div>
-                  <div class="col-12 col-md-3">
-                    <label class="form-label">${t("swissTiebreaker")}</label>
-                    <div class="form-control-plaintext text-muted pt-2">${t("swissTiebreakerBuchholz")}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            ${setupTypePanelContent}
+            ${swissSettingsContent}
             <div class="mb-3 mt-3">
               <label for="players-input" class="form-label">${t("players")}</label>
               <textarea id="players-input" class="form-control" rows="8" required>${escapeHtml(
@@ -304,82 +293,12 @@ function renderRoundHistory(tournament, t, getPlayerName) {
       return `<li class="list-group-item">#${index + 1} — ${escapeHtml(matchesText + byeText)}</li>`;
     })
     .join("");
-  return `
-    <div class="card shadow-sm mt-4">
-      <div class="card-body">
-        <h3 class="h6 mb-3">${t("roundHistory")}</h3>
-        <ul class="list-group">${rows}</ul>
-      </div>
-    </div>
-  `;
-}
-
-function renderRoundStageHeader(tournament, phase, t) {
-  const roundNumber = tournament.rounds.length + 1;
-  const stepLabel = phase === "ranking" ? t("stepRanking") : t("stepPairing");
-
-  return `
-    <div class="round-stage-banner mt-4">
-      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <div>
-          <div class="round-stage-kicker text-uppercase">${t("currentRound")}</div>
-          <h2 class="round-stage-title mb-0">#${roundNumber} — ${stepLabel}</h2>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderRankingSnapshot(tournament, t, getPlayerName) {
-  if (tournament.tournamentType === "swiss") {
-    const standings = buildSwissStandingsData(
-      tournament.players,
-      tournament.rounds,
-      tournament.swissSettings || normalizeSwissSettings()
-    );
-
-    const rows = standings
-      .map(
-        (entry, index) => `
-          <li class="list-group-item d-flex justify-content-between align-items-center gap-3">
-            <div>
-              <strong>${index + 1}.</strong> ${escapeHtml(entry.name)}
-            </div>
-            <div class="d-flex align-items-center gap-2 text-end">
-              <span class="badge bg-primary-subtle text-primary-emphasis">${t("points") || "Points"}: ${Number(entry.score).toFixed(1)}</span>
-              <small class="text-muted">Buchholz: ${Number(entry.buchholz).toFixed(1)}</small>
-            </div>
-          </li>
-        `
-      )
-      .join("");
-
-    return `
-      <div class="card shadow-sm mt-4">
-        <div class="card-body">
-          <h3 class="h6 mb-3">${t("rankingViewTitle")}</h3>
-          <ul class="list-group">${rows}</ul>
-        </div>
-      </div>
-    `;
-  }
-
-  const rows = tournament.rankingGroups
-    .filter((group) => group.length > 0)
-    .map((group, index) => {
-      const players = group.map((playerId) => escapeHtml(getPlayerName(tournament, playerId))).join(", ");
-      return `<li class="list-group-item"><strong>${index + 1}.</strong> ${players}</li>`;
-    })
-    .join("");
-
-  return `
-    <div class="card shadow-sm mt-4">
-      <div class="card-body">
-        <h3 class="h6 mb-3">${t("rankingViewTitle")}</h3>
-        <ul class="list-group">${rows}</ul>
-      </div>
-    </div>
-  `;
+  return roundHistoryCardComponent.render({
+    props: {
+      t,
+      rowsContent: rows,
+    },
+  });
 }
 
 function renderPairingDraft(tournament, state, t, getPlayerName) {
@@ -486,41 +405,27 @@ function renderPairingDraft(tournament, state, t, getPlayerName) {
     })
     .join("");
 
-  const pairingToolsPanel = allowAutoPairingTools
-    ? `
-        <div class="card mt-4 auto-pairing-panel">
-          <div class="card-body">
-            <h4 class="h6 mb-3">${isSwissTournament ? t("swissPairing") : t("automaticPairing")}</h4>
-            <div class="row g-2">
-              <div class="col-12 col-md-3">
-                <label class="form-label">${t("mode")}</label>
-                <select id="auto-mode" class="form-select">
-                  ${modeOptions}
-                </select>
-              </div>
-            </div>
-            ${automaticSettings}
-            <div class="d-flex gap-2 mt-3">
-              <button type="button" id="try-auto-pairing" class="btn btn-outline-primary">${t(
-                "tryAutoPairing"
-              )}</button>
-              ${
-                allowManualPairing
-                  ? `<button type="button" id="clear-pairing" class="btn btn-outline-secondary">${t(
-                      "clearPairing"
-                    )}</button>`
-                  : ""
-              }
-            </div>
-          </div>
-        </div>
-      `
-    : `
-        <div class="alert alert-info mt-4 mb-0">${t("swissPairingLocked")}</div>
-      `;
+  const pairingToolsPanel = pairingToolsPanelComponent.render({
+    props: {
+      t,
+      isSwissTournament,
+      allowAutoPairingTools,
+      modeOptions,
+      automaticSettings,
+      allowManualPairing,
+    },
+  });
+
+  const roundStageHeader = roundStageBannerComponent.render({
+    props: {
+      t,
+      phase: "pairing",
+      roundNumber: tournament.rounds.length + 1,
+    },
+  });
 
   return `
-    ${renderRoundStageHeader(tournament, "pairing", t)}
+    ${roundStageHeader}
     <div class="card shadow-sm mt-3">
       <div class="card-body">
         <h3 class="h5 mb-3">${t("pairingViewTitle")}</h3>
@@ -553,48 +458,20 @@ function renderPairingDraft(tournament, state, t, getPlayerName) {
 
 function renderSwissResultsDraft(tournament, t, getPlayerName) {
   const draft = tournament.currentRoundDraft;
-  const tableResults = draft.results || [];
+  const rows = swissResultsTableListComponent.render({
+    props: { draft, t, getPlayerName, tournament },
+  });
 
-  const rows = draft.pairing.tables
-    .map((table, index) => {
-      if (!table.a || !table.b) {
-        return "";
-      }
-
-      const currentResult = tableResults[index] || { winner: "" };
-      const buttonA = currentResult.winner === "a" ? "selected" : "";
-      const buttonB = currentResult.winner === "b" ? "selected" : "";
-      const buttonDraw = currentResult.winner === "draw" ? "selected" : "";
-      const playerAName = escapeHtml(getPlayerName(tournament, table.a));
-      const playerBName = escapeHtml(getPlayerName(tournament, table.b));
-      const playerAResultLabel = `${playerAName} ${t("resultWinA")}`;
-      const playerBResultLabel = `${playerBName} ${t("resultWinB")}`;
-
-      return `
-        <div class="card mb-3">
-          <div class="card-body">
-            <h4 class="h6 mb-3">${t("tables")} #${table.tableNumber}</h4>
-            <div class="d-flex flex-column flex-md-row gap-2">
-              <div class="fw-semibold">${playerAName}</div>
-              <div class="fw-semibold">vs</div>
-              <div class="fw-semibold">${playerBName}</div>
-            </div>
-            <div class="mt-3">
-              <select class="form-select swiss-result-select" data-result-index="${index}">
-                <option value="">${t("resultSelect")}</option>
-                <option value="a" ${buttonA ? "selected" : ""}>${playerAResultLabel}</option>
-                <option value="b" ${buttonB ? "selected" : ""}>${playerBResultLabel}</option>
-                <option value="draw" ${buttonDraw ? "selected" : ""}>${t("resultDraw")}</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      `;
-    })
-    .join("");
+  const roundStageHeader = roundStageBannerComponent.render({
+    props: {
+      t,
+      phase: "pairing",
+      roundNumber: tournament.rounds.length + 1,
+    },
+  });
 
   return `
-    ${renderRoundStageHeader(tournament, "pairing", t)}
+    ${roundStageHeader}
     <div class="card shadow-sm mt-3">
       <div class="card-body">
         <h3 class="h5 mb-3">${t("nextStepResults")}</h3>
@@ -638,8 +515,16 @@ function renderRankingDraft(tournament, t, getPlayerName) {
     })
     .join("");
 
+  const roundStageHeader = roundStageBannerComponent.render({
+    props: {
+      t,
+      phase: "ranking",
+      roundNumber: tournament.rounds.length + 1,
+    },
+  });
+
   return `
-    ${renderRoundStageHeader(tournament, "ranking", t)}
+    ${roundStageHeader}
     <div class="card shadow-sm mt-3">
       <div class="card-body">
         <h3 class="h5 mb-2">${t("rankingViewTitle")}</h3>
@@ -669,31 +554,25 @@ function renderRankingDraft(tournament, t, getPlayerName) {
   `;
 }
 
-export function renderTournamentView({ getCurrentTournament, state, t, getPlayerName }) {
+export function renderTournamentView({
+  getCurrentTournament,
+  state,
+  t,
+  getPlayerName,
+  tournamentHeaderContent = "",
+  tournamentRoundIntroContent = "",
+  tournamentEmptyStateContent = "",
+}) {
   const tournament = getCurrentTournament();
   if (!tournament) {
-    return `<div class="alert alert-light border">${t("noTournamentsYet")}</div>`;
+    return tournamentEmptyStateContent || `<div class="alert alert-light border">${t("noTournamentsYet")}</div>`;
   }
-
-  const topActions = `
-    <div class="d-flex gap-2">
-      <button id="back-home" class="btn btn-outline-secondary">${t("backToHome")}</button>
-    </div>
-  `;
 
   let content = "";
   if (!tournament.currentRoundDraft) {
     content = `
-      <div class="card shadow-sm mt-4">
-        <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
-          <div>
-            <h3 class="h5 mb-1">${escapeHtml(tournament.name)}</h3>
-            <p class="text-muted mb-0">${t("roundsCount")}: ${tournament.rounds.length}</p>
-          </div>
-          <button id="prepare-round" class="btn btn-primary">${t("prepareRound")}</button>
-        </div>
-      </div>
-      ${renderRankingSnapshot(tournament, t, getPlayerName)}
+      ${tournamentRoundIntroContent}
+      ${rankingSnapshotCardComponent.render({ props: { tournament, t, getPlayerName } })}
       ${renderRoundHistory(tournament, t, getPlayerName)}
     `;
   } else if (tournament.currentRoundDraft.phase === "pairing") {
@@ -709,10 +588,7 @@ export function renderTournamentView({ getCurrentTournament, state, t, getPlayer
 
   return `
     <section>
-      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-        <h1 class="h4 mb-0">${escapeHtml(tournament.name)}</h1>
-        ${topActions}
-      </div>
+      ${tournamentHeaderContent}
       ${content}
     </section>
   `;

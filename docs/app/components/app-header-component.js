@@ -1,6 +1,6 @@
 import { renderAppBar } from "../renderers.js";
 
-export const appBarComponent = {
+export const appHeaderComponent = {
   name: "app-bar",
   render({ props }) {
     return renderAppBar({ t: props.t, language: props.language });
