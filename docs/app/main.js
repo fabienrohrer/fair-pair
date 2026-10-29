@@ -2,12 +2,13 @@ import { STORAGE_KEY, createInitialState, migrateLoadedState, selectDefaultTourn
 import { normalizeSwissSettings } from "../swiss.js";
 import { NOTIFICATION_DEFAULT_DURATION_MS, NOTIFICATION_LIMIT, messages } from "./constants.js";
 import {
-  renderAppBar,
   renderHomeView,
   renderNotificationStack,
   renderSetupView,
   renderTournamentView,
 } from "./renderers.js";
+import { appBarComponent } from "./components/app-bar-component.js";
+import { bindRenderedComponents, renderComponent } from "./components/core/runtime.js";
 import {
   attachGlobalListeners,
   attachHomeListeners,
@@ -132,8 +133,24 @@ function render() {
     viewContent = renderHomeView({ state, t });
   }
 
+  const appBar = renderComponent(appBarComponent, {
+    key: "main",
+    props: {
+      t,
+      language: state.language,
+      onLanguageChange: (nextLanguage) => {
+        if (state.language === nextLanguage) {
+          return;
+        }
+        state.language = nextLanguage;
+        saveState();
+        render();
+      },
+    },
+  });
+
   root.innerHTML = `
-    ${renderAppBar({ t, state })}
+    ${appBar}
     ${renderNotificationStack({ uiState, t })}
     ${viewContent}
     <footer class="fairpair-footer mt-4">
@@ -156,7 +173,8 @@ function render() {
     </footer>
   `;
 
-  attachGlobalListeners({ state, t, saveState, render, dismissNotification });
+  bindRenderedComponents();
+  attachGlobalListeners({ dismissNotification });
   if (uiState.view === "setup") {
     attachSetupListeners({
       state,

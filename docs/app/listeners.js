@@ -296,19 +296,7 @@ function attachRankingDnD(tournament, { saveState, render }) {
   });
 }
 
-export function attachGlobalListeners({ state, t, saveState, render, dismissNotification }) {
-  document.querySelectorAll(".lang-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      const next = button.dataset.lang === "fr" ? "fr" : "en";
-      if (state.language === next) {
-        return;
-      }
-      state.language = next;
-      saveState();
-      render();
-    });
-  });
-
+export function attachGlobalListeners({ dismissNotification }) {
   document.querySelectorAll("[data-notification-dismiss]").forEach((button) => {
     button.addEventListener("click", () => {
       dismissNotification(button.dataset.notificationDismiss);

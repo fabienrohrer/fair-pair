@@ -59,7 +59,11 @@ fair-pair/
     │   ├── listeners.js       # UI listeners + drag-drop interactions
     │   ├── renderers.js       # Home/setup/tournament view rendering
     │   ├── constants.js       # i18n messages + UI constants
-    │   └── utils.js           # Shared app utilities
+    │   ├── utils.js           # Shared app utilities
+    │   └── components/
+    │       ├── app-bar-component.js  # Example "home-made" UI component
+    │       └── core/
+    │           └── runtime.js        # Tiny component runtime (render + bind)
     ├── pairing.js             # Pure pairing assistant logic
     └── tournament-state.js    # Pure app/tournament state helpers
 ```

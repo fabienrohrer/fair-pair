@@ -112,7 +112,7 @@ function renderPlayerChip(tournament, playerId, dragType, origin, getPlayerName,
   `;
 }
 
-export function renderAppBar({ t, state }) {
+export function renderAppBar({ t, language }) {
   return `
     <nav class="navbar navbar-expand-lg fairpair-appbar px-3 px-md-4 py-3 mb-4">
       <div class="container-fluid px-0">
@@ -123,8 +123,8 @@ export function renderAppBar({ t, state }) {
           <div class="d-flex align-items-center gap-2 ms-auto">
             <i class="bi bi-globe2 lang-icon" aria-hidden="true"></i>
             <div class="lang-switcher" role="group" aria-label="${t("language")}">
-              <button type="button" class="lang-btn ${state.language === "en" ? "active" : ""}" data-lang="en">EN</button>
-              <button type="button" class="lang-btn ${state.language === "fr" ? "active" : ""}" data-lang="fr">FR</button>
+              <button type="button" class="lang-btn ${language === "en" ? "active" : ""}" data-lang="en">EN</button>
+              <button type="button" class="lang-btn ${language === "fr" ? "active" : ""}" data-lang="fr">FR</button>
             </div>
           </div>
         </div>
