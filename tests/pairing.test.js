@@ -8,7 +8,11 @@ import {
   getByeCounts,
   isValidPairingAssignment,
 } from "../docs/pairing.js";
-import { generateSwissPairingProposal } from "../docs/swiss.js";
+import {
+  buildSwissStandingsData,
+  generateSwissPairingProposal,
+  normalizeSwissSettings,
+} from "../docs/swiss.js";
 
 function makePlayers(count) {
   return Array.from({ length: count }, (_, index) => ({
@@ -259,6 +263,60 @@ test("random mode reshuffles the bye as well as all other players", () => {
     first.matches.map((match) => [match.a, match.b].sort().join("-")),
     second.matches.map((match) => [match.a, match.b].sort().join("-"))
   );
+});
+
+test("swiss settings normalize common chess presets", () => {
+  const standard = normalizeSwissSettings({ scoreMode: "standard", byeStrategy: "lowest_score" });
+  assert.equal(standard.winPoints, 1);
+  assert.equal(standard.drawPoints, 0.5);
+  assert.equal(standard.byePoints, 1);
+  assert.equal(standard.byeStrategy, "lowest_score");
+
+  const double = normalizeSwissSettings({ scoreMode: "double", byeStrategy: "random" });
+  assert.equal(double.winPoints, 2);
+  assert.equal(double.drawPoints, 1);
+  assert.equal(double.byePoints, 2);
+  assert.equal(double.byeStrategy, "random");
+});
+
+test("swiss standings expose points and Buchholz", () => {
+  const players = makePlayers(4);
+  const rounds = [
+    {
+      matches: [
+        { a: "p1", b: "p2" },
+        { a: "p3", b: "p4" },
+      ],
+      results: [
+        { a: "p1", b: "p2", winner: "a" },
+        { a: "p3", b: "p4", winner: "draw" },
+      ],
+    },
+    {
+      matches: [
+        { a: "p1", b: "p3" },
+        { a: "p2", b: "p4" },
+      ],
+      results: [
+        { a: "p1", b: "p3", winner: "a" },
+        { a: "p2", b: "p4", winner: "b" },
+      ],
+    },
+  ];
+
+  const standings = buildSwissStandingsData(players, rounds, normalizeSwissSettings());
+  assert.equal(standings[0].playerId, "p1");
+  assert.equal(standings[0].score, 2);
+  assert.equal(standings[0].buchholz, 0.5);
+  assert.equal(standings[1].playerId, "p4");
+  assert.equal(standings[1].score, 1.5);
+  assert.equal(standings[1].buchholz, 0.5);
+  assert.equal(standings[2].playerId, "p3");
+  assert.equal(standings[2].score, 0.5);
+  assert.equal(standings[2].buchholz, 3.5);
+  assert.equal(standings[3].playerId, "p2");
+  assert.equal(standings[3].score, 0);
+  assert.equal(standings[3].buchholz, 3.5);
 });
 
 test("swiss pairing prioritizes similar scores and avoids prior opponents", () => {

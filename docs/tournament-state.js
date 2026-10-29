@@ -1,4 +1,5 @@
 import { createEmptyPairingSlots, flattenRankingGroups } from "./pairing.js";
+import { normalizeSwissSettings } from "./swiss.js";
 
 export const STORAGE_KEY = "fair-pair:tournaments:v4";
 
@@ -106,14 +107,24 @@ export function createRoundDraft(playerIds, tournamentType = "manual") {
   return draft;
 }
 
-export function createTournamentFromForm({ id, name, playerNames, tournamentType = "manual" }) {
+export function createTournamentFromForm({
+  id,
+  name,
+  playerNames,
+  tournamentType = "manual",
+  swissSettings,
+}) {
   const players = createPlayersWithPersistentHues(playerNames);
   const playerIds = players.map((player) => player.id);
+  const normalizedType = getTournamentTypeConfig(tournamentType).id;
 
   return {
     id,
     name,
-    tournamentType: getTournamentTypeConfig(tournamentType).id,
+    tournamentType: normalizedType,
+    swissSettings: normalizeSwissSettings(
+      normalizedType === "swiss" ? swissSettings : undefined
+    ),
     players,
     rounds: [],
     rankingGroups: createInitialRankingGroups(playerIds),
@@ -138,11 +149,19 @@ export function needsRoundReset(tournament, formData) {
   return false;
 }
 
-export function applyTournamentEdits(tournament, formData, { resetRounds, tournamentType = tournament.tournamentType || "manual" }) {
+export function applyTournamentEdits(
+  tournament,
+  formData,
+  { resetRounds, tournamentType = tournament.tournamentType || "manual", swissSettings }
+) {
+  const normalizedType = getTournamentTypeConfig(tournamentType).id;
   const updated = {
     ...tournament,
     name: formData.name,
-    tournamentType: getTournamentTypeConfig(tournamentType).id,
+    tournamentType: normalizedType,
+    swissSettings: normalizeSwissSettings(
+      normalizedType === "swiss" ? swissSettings || tournament.swissSettings : undefined
+    ),
     updatedAt: Date.now(),
   };
   if (!resetRounds) {
@@ -234,6 +253,9 @@ function migrateLegacyTournament(tournament, idFallback = "legacy-1") {
     id: tournament.id || idFallback,
     name: tournament.name || "Tournament",
     tournamentType: getTournamentTypeConfig(tournamentType).id,
+    swissSettings: normalizeSwissSettings(
+      tournamentType === "swiss" ? tournament.swissSettings : undefined
+    ),
     players,
     rounds,
     rankingGroups: normalizeRankingGroups(lastRanking, playerIds),

@@ -6,14 +6,14 @@
 
 **Fair Pair** is a lightweight vibe-coded browser app that helps a tournament organizer build the **next round pairings** with a visual interface.
 
-The app supports manual ranking rounds and a Swiss-system mode where pairings follow current scores and the organizer enters match results after each round.
+The app supports manual ranking rounds and a Swiss-system mode where pairings follow current scores, organizers can choose common Swiss scoring presets, and the standings show score + Buchholz information.
 
 ## Product scope
 
 - Manage multiple tournaments locally.
 - Support multiple tournament types:
   - **Manual ranking rounds:** pair players from the current ranking and set the next order manually.
-  - **Swiss system:** pair players by current score while avoiding rematches and track match results round by round.
+  - **Swiss system:** pair players by current score while avoiding rematches, choose a common scoring preset (standard 1/0.5/0 or double points), and track match results round by round.
 - For each round, guide the organizer through a clear flow adapted to the tournament type.
 - Keep pairing helper algorithms available, but always let the organizer override manually.
 
@@ -33,7 +33,7 @@ The app supports manual ranking rounds and a Swiss-system mode where pairings fo
 - **Ranking reset shortcut:** in ranking view, a dedicated reset action clears current ranking placements without leaving the round flow.
 - **Reversible round navigation:** while a round draft is active, the organizer can go back from ranking to pairing without losing draft data, or return to tournament view (with confirmation to discard the draft).
 - **Clear round context:** pairing and ranking screens prominently display the current round number and active step.
-- **No score computation:** the app never stores points/wins/losses and never derives ranking from match results.
+- **Swiss score tracking:** Swiss tournaments store points and expose the current standings with score and Buchholz information.
 - **Automatic persistence:** complete app state is stored in `localStorage` after every change.
 - **Centralized in-app notifications:** validation and success feedback use a non-blocking stacked notification UI.
 - **Internationalization:** English and French are supported; default language follows browser language.

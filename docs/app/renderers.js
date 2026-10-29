@@ -1,5 +1,6 @@
 import { flattenRankingGroups } from "../pairing.js";
 import { normalizeRankingGroups } from "../tournament-state.js";
+import { buildSwissStandingsData, normalizeSwissSettings } from "../swiss.js";
 import { PRIORITY_ORDERS } from "./constants.js";
 import { escapeHtml } from "./utils.js";
 
@@ -205,6 +206,11 @@ export function renderSetupView({ uiState, getTournamentById, t }) {
   const tournament = isEdit ? getTournamentById(uiState.setupTournamentId) : null;
   const name = tournament?.name || "";
   const playersText = tournament ? tournament.players.map((player) => player.name).join("\n") : "";
+  const swissSettings = normalizeSwissSettings(
+    tournament?.swissSettings || uiState.setupSwissConfig || undefined
+  );
+  const swissSettingsVisible = uiState.setupTournamentType === "swiss";
+
   return `
     <section>
       <div class="d-flex justify-content-between align-items-center mb-3">
@@ -248,7 +254,40 @@ export function renderSetupView({ uiState, getTournamentById, t }) {
               </div>
               <input id="tournament-type" type="hidden" value="${escapeHtml(uiState.setupTournamentType || "manual")}" />
             </div>
-            <div class="mb-3">
+            <div id="swiss-settings-panel" class="card border-0 bg-transparent ${swissSettingsVisible ? "" : "d-none"}">
+              <div class="card-body px-0 pb-0">
+                <h3 class="h6 mb-3">${t("swissOptions")}</h3>
+                <div class="row g-3">
+                  <div class="col-12 col-md-5">
+                    <label for="swiss-score-mode" class="form-label">${t("swissScoring")}</label>
+                    <select id="swiss-score-mode" class="form-select">
+                      <option value="standard" ${swissSettings.scoreMode === "standard" ? "selected" : ""}>${t(
+                        "swissScoringStandard"
+                      )}</option>
+                      <option value="double" ${swissSettings.scoreMode === "double" ? "selected" : ""}>${t(
+                        "swissScoringDouble"
+                      )}</option>
+                    </select>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <label for="swiss-bye-policy" class="form-label">${t("swissByePolicy")}</label>
+                    <select id="swiss-bye-policy" class="form-select">
+                      <option value="lowest_score" ${swissSettings.byeStrategy === "lowest_score" ? "selected" : ""}>${t(
+                        "swissByeLowest"
+                      )}</option>
+                      <option value="random" ${swissSettings.byeStrategy === "random" ? "selected" : ""}>${t(
+                        "swissByeRandom"
+                      )}</option>
+                    </select>
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <label class="form-label">${t("swissTiebreaker")}</label>
+                    <div class="form-control-plaintext text-muted pt-2">${t("swissTiebreakerBuchholz")}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="mb-3 mt-3">
               <label for="players-input" class="form-label">${t("players")}</label>
               <textarea id="players-input" class="form-control" rows="8" required>${escapeHtml(
                 playersText
@@ -306,6 +345,39 @@ function renderRoundStageHeader(tournament, phase, t) {
 }
 
 function renderRankingSnapshot(tournament, t, getPlayerName) {
+  if (tournament.tournamentType === "swiss") {
+    const standings = buildSwissStandingsData(
+      tournament.players,
+      tournament.rounds,
+      tournament.swissSettings || normalizeSwissSettings()
+    );
+
+    const rows = standings
+      .map(
+        (entry, index) => `
+          <li class="list-group-item d-flex justify-content-between align-items-center gap-3">
+            <div>
+              <strong>${index + 1}.</strong> ${escapeHtml(entry.name)}
+            </div>
+            <div class="d-flex align-items-center gap-2 text-end">
+              <span class="badge bg-primary-subtle text-primary-emphasis">${t("points") || "Points"}: ${Number(entry.score).toFixed(1)}</span>
+              <small class="text-muted">Buchholz: ${Number(entry.buchholz).toFixed(1)}</small>
+            </div>
+          </li>
+        `
+      )
+      .join("");
+
+    return `
+      <div class="card shadow-sm mt-4">
+        <div class="card-body">
+          <h3 class="h6 mb-3">${t("rankingViewTitle")}</h3>
+          <ul class="list-group">${rows}</ul>
+        </div>
+      </div>
+    `;
+  }
+
   const rows = tournament.rankingGroups
     .filter((group) => group.length > 0)
     .map((group, index) => {
@@ -313,6 +385,7 @@ function renderRankingSnapshot(tournament, t, getPlayerName) {
       return `<li class="list-group-item"><strong>${index + 1}.</strong> ${players}</li>`;
     })
     .join("");
+
   return `
     <div class="card shadow-sm mt-4">
       <div class="card-body">

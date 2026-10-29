@@ -1,4 +1,5 @@
 import { STORAGE_KEY, createInitialState, migrateLoadedState, selectDefaultTournamentId } from "../tournament-state.js";
+import { normalizeSwissSettings } from "../swiss.js";
 import { NOTIFICATION_DEFAULT_DURATION_MS, NOTIFICATION_LIMIT, messages } from "./constants.js";
 import {
   renderAppBar,
@@ -20,6 +21,7 @@ const uiState = {
   setupMode: "create",
   setupTournamentId: null,
   setupTournamentType: "manual",
+  setupSwissConfig: normalizeSwissSettings(),
   setupReturnView: "home",
   notifications: [],
 };
@@ -72,11 +74,14 @@ function openHomeView() {
   uiState.view = "home";
 }
 
-function openSetupView(mode, tournamentId = null, returnView = "home", tournamentType = "manual") {
+function openSetupView(mode, tournamentId = null, returnView = "home", tournamentType = "manual", swissSettings = null) {
   uiState.view = "setup";
   uiState.setupMode = mode;
   uiState.setupTournamentId = tournamentId;
   uiState.setupTournamentType = tournamentType;
+  uiState.setupSwissConfig = normalizeSwissSettings(
+    swissSettings || (tournamentType === "swiss" ? undefined : undefined)
+  );
   uiState.setupReturnView = returnView;
 }
 

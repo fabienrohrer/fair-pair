@@ -4,7 +4,11 @@ import {
   generatePairingProposal,
   isValidPairingAssignment,
 } from "../pairing.js";
-import { buildSwissRankingGroups, generateSwissPairingProposal } from "../swiss.js";
+import {
+  buildSwissRankingGroups,
+  generateSwissPairingProposal,
+  normalizeSwissSettings,
+} from "../swiss.js";
 import {
   applyTournamentEdits,
   createRoundDraft,
@@ -389,6 +393,12 @@ export function attachSetupListeners({
     render();
   });
 
+  const getSwissSettingsFromForm = () => {
+    const scoreMode = document.getElementById("swiss-score-mode")?.value || "standard";
+    const byeStrategy = document.getElementById("swiss-bye-policy")?.value || "lowest_score";
+    return normalizeSwissSettings({ scoreMode, byeStrategy });
+  };
+
   document.querySelectorAll(".tournament-type-option").forEach((button) => {
     button.addEventListener("click", () => {
       const nextType = button.dataset.tournamentType;
@@ -396,6 +406,13 @@ export function attachSetupListeners({
       const hiddenInput = document.getElementById("tournament-type");
       if (hiddenInput) {
         hiddenInput.value = nextType;
+      }
+      const swissSettingsPanel = document.getElementById("swiss-settings-panel");
+      if (swissSettingsPanel) {
+        swissSettingsPanel.classList.toggle("d-none", nextType !== "swiss");
+      }
+      if (nextType === "swiss") {
+        uiState.setupSwissConfig = getSwissSettingsFromForm();
       }
       document.querySelectorAll(".tournament-type-option").forEach((option) => {
         option.classList.toggle("selected", option.dataset.tournamentType === nextType);
@@ -407,6 +424,8 @@ export function attachSetupListeners({
     event.preventDefault();
     const name = document.getElementById("tournament-name").value.trim();
     const playerNames = parsePlayersFromText(document.getElementById("players-input").value);
+    const selectedTournamentType = document.getElementById("tournament-type")?.value || uiState.setupTournamentType || "manual";
+    const swissSettings = selectedTournamentType === "swiss" ? getSwissSettingsFromForm() : undefined;
 
     if (!name || playerNames.length < 2) {
       notify(t("setupRequired"), { variant: "danger" });
@@ -431,11 +450,10 @@ export function attachSetupListeners({
           return;
         }
       }
-      const selectedTournamentType = document.getElementById("tournament-type")?.value || uiState.setupTournamentType || "manual";
       const updated = applyTournamentEdits(
         current,
         { name, playerNames },
-        { resetRounds, tournamentType: selectedTournamentType }
+        { resetRounds, tournamentType: selectedTournamentType, swissSettings }
       );
       state.tournaments = state.tournaments.map((item) => (item.id === updated.id ? updated : item));
       selectTournament(updated.id);
@@ -449,7 +467,8 @@ export function attachSetupListeners({
         id: createTournamentId(),
         name,
         playerNames,
-        tournamentType: document.getElementById("tournament-type")?.value || uiState.setupTournamentType || "manual",
+        tournamentType: selectedTournamentType,
+        swissSettings,
       });
       state.tournaments.push(created);
       openTournamentView(created.id);
@@ -531,6 +550,7 @@ export function attachTournamentListeners({
               players: tournament.players,
               rounds: tournament.rounds,
               randomSeed: nextRandomSeed,
+              settings: tournament.swissSettings || normalizeSwissSettings(),
             })
           : generatePairingProposal({
               players: tournament.players,
@@ -631,7 +651,11 @@ export function attachTournamentListeners({
           rankingGroups: [],
         };
         tournament.rounds.push(nextRound);
-        tournament.rankingGroups = buildSwissRankingGroups(tournament.players, tournament.rounds);
+        tournament.rankingGroups = buildSwissRankingGroups(
+          tournament.players,
+          tournament.rounds,
+          tournament.swissSettings || normalizeSwissSettings()
+        );
         tournament.currentRoundDraft = null;
       });
       notify(t("roundSaved"), { variant: "success" });
