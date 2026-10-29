@@ -62,7 +62,14 @@ fair-pair/
     ├── app.js                 # Thin app entrypoint
     ├── app/
     │   ├── main.js            # App bootstrap + render orchestration
-    │   ├── listeners.js       # UI listeners + drag-drop interactions
+    │   ├── listeners/
+    │   │   ├── index.js               # Listener entrypoint exports
+    │   │   ├── global-listeners.js    # Global UI listeners
+    │   │   ├── home-listeners.js      # Home view listeners
+    │   │   ├── setup-listeners.js     # Setup view listeners
+    │   │   ├── tournament-listeners.js # Tournament flow listeners
+    │   │   ├── dnd.js                 # Drag-and-drop behavior
+    │   │   └── shared.js              # Shared listener helpers
     │   ├── renderers.js       # Home/setup/tournament view rendering
     │   ├── constants.js       # i18n messages + UI constants
     │   ├── utils.js           # Shared app utilities

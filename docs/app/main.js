@@ -24,7 +24,7 @@ import {
   attachHomeListeners,
   attachSetupListeners,
   attachTournamentListeners,
-} from "./listeners.js";
+} from "./listeners/index.js";
 import { createNotificationId, detectDefaultLanguage } from "./utils.js";
 
 const uiState = {
