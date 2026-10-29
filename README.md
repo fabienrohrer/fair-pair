@@ -70,7 +70,19 @@ fair-pair/
     │   │   ├── tournament-listeners.js # Tournament flow listeners
     │   │   ├── dnd.js                 # Drag-and-drop behavior
     │   │   └── shared.js              # Shared listener helpers
-    │   ├── renderers.js       # Home/setup/tournament view rendering
+    │   ├── renderers.js       # Public renderer facade
+    │   ├── renderers/
+    │   │   ├── layout-renderers.js    # App bar + notification rendering
+    │   │   ├── home-renderers.js      # Home view rendering
+    │   │   ├── setup-renderers.js     # Setup view rendering
+    │   │   ├── tournament-renderers.js # Tournament renderer compatibility export
+    │   │   ├── tournament/
+    │   │   │   ├── index.js             # Tournament renderer orchestration
+    │   │   │   ├── overview-renderers.js # Tournament overview rendering
+    │   │   │   ├── pairing-renderers.js  # Pairing draft rendering
+    │   │   │   ├── results-renderers.js  # Swiss results rendering
+    │   │   │   └── ranking-renderers.js  # Ranking draft rendering
+    │   │   └── shared-renderers.js    # Shared renderer helpers
     │   ├── constants.js       # i18n messages + UI constants
     │   ├── utils.js           # Shared app utilities
     │   └── components/
