@@ -146,6 +146,11 @@ export function renderHomeView({ state, t }) {
           </div>
         `
         : "";
+      const tournamentTypeLabel =
+        tournament.tournamentType === "swiss"
+          ? t("tournamentTypeSwiss")
+          : t("tournamentTypeManual");
+
       return `
         <div class="col-12 col-md-6 col-xl-4">
           <div class="card h-100 tournament-tile ${selected ? "tournament-tile-selected" : ""}">
@@ -154,6 +159,7 @@ export function renderHomeView({ state, t }) {
             )}">
               <h3 class="h6 mb-2">${escapeHtml(tournament.name)}</h3>
               <p class="small text-muted mb-1">${t("playersCount")}: ${tournament.players.length}</p>
+              <p class="small text-muted mb-1">${t("tournamentType")}: ${tournamentTypeLabel}</p>
               <p class="small text-muted mb-0">${t("roundsCount")}: ${tournament.rounds.length}</p>
             </button>
             ${footer}
@@ -211,6 +217,36 @@ export function renderSetupView({ uiState, getTournamentById, t }) {
             <div class="mb-3">
               <label for="tournament-name" class="form-label">${t("tournamentName")}</label>
               <input id="tournament-name" class="form-control" value="${escapeHtml(name)}" required />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">${t("tournamentType")}</label>
+              <div class="row g-3 tournament-type-cards">
+                <div class="col-12 col-md-6">
+                  <button
+                    type="button"
+                    class="card tournament-type-option ${uiState.setupTournamentType === "manual" ? "selected" : ""}"
+                    data-tournament-type="manual"
+                  >
+                    <div class="card-body">
+                      <h3 class="h6 mb-2">${t("tournamentTypeManual")}</h3>
+                      <p class="mb-0 small text-muted">${t("tournamentTypeManualDescription")}</p>
+                    </div>
+                  </button>
+                </div>
+                <div class="col-12 col-md-6">
+                  <button
+                    type="button"
+                    class="card tournament-type-option ${uiState.setupTournamentType === "swiss" ? "selected" : ""}"
+                    data-tournament-type="swiss"
+                  >
+                    <div class="card-body">
+                      <h3 class="h6 mb-2">${t("tournamentTypeSwiss")}</h3>
+                      <p class="mb-0 small text-muted">${t("tournamentTypeSwissDescription")}</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+              <input id="tournament-type" type="hidden" value="${escapeHtml(uiState.setupTournamentType || "manual")}" />
             </div>
             <div class="mb-3">
               <label for="players-input" class="form-label">${t("players")}</label>
@@ -292,7 +328,9 @@ function renderPairingDraft(tournament, state, t, getPlayerName) {
   const unassigned = getPairingUnassignedIds(tournament);
   const byeEnabled = tournament.players.length % 2 === 1;
   const priorityValue = draft.autoOptions.priorityOrder.join("|");
-  const isAutomaticMode = draft.autoOptions.mode === "automatic";
+  const isSwissTournament = tournament.tournamentType === "swiss";
+  const isFirstRound = tournament.rounds.length === 0;
+  const isAutomaticMode = !isSwissTournament && draft.autoOptions.mode === "automatic" && !isFirstRound;
 
   const tables = draft.pairing.tables
     .map((table, index) => {
@@ -355,6 +393,18 @@ function renderPairingDraft(tournament, state, t, getPlayerName) {
     `
     : "";
 
+  const showModeSelector = !isSwissTournament && !(isFirstRound && draft.autoOptions.mode === "random");
+  const modeOptions = isFirstRound || isSwissTournament
+    ? `<option value="random" selected>${t("random")}</option>`
+    : `
+        <option value="automatic" ${draft.autoOptions.mode === "automatic" ? "selected" : ""}>${t(
+          "automatic"
+        )}</option>
+        <option value="random" ${draft.autoOptions.mode === "random" ? "selected" : ""}>${t(
+          "random"
+        )}</option>
+      `;
+
   return `
     ${renderRoundStageHeader(tournament, "pairing", t)}
     <div class="card shadow-sm mt-3">
@@ -377,20 +427,17 @@ function renderPairingDraft(tournament, state, t, getPlayerName) {
 
         <div class="card mt-4 auto-pairing-panel">
           <div class="card-body">
-            <h4 class="h6 mb-3">${t("automaticPairing")}</h4>
-            <div class="row g-2">
-              <div class="col-12 col-md-3">
-                <label class="form-label">${t("mode")}</label>
-                <select id="auto-mode" class="form-select">
-                  <option value="automatic" ${draft.autoOptions.mode === "automatic" ? "selected" : ""}>${t(
-                    "automatic"
-                  )}</option>
-                  <option value="random" ${draft.autoOptions.mode === "random" ? "selected" : ""}>${t(
-                    "random"
-                  )}</option>
-                </select>
+            <h4 class="h6 mb-3">${isSwissTournament ? "Swiss pairing" : t("automaticPairing")}</h4>
+            ${showModeSelector ? `
+              <div class="row g-2">
+                <div class="col-12 col-md-3">
+                  <label class="form-label">${t("mode")}</label>
+                  <select id="auto-mode" class="form-select">
+                    ${modeOptions}
+                  </select>
+                </div>
               </div>
-            </div>
+            ` : ""}
             ${automaticSettings}
             <div class="d-flex gap-2 mt-3">
               <button type="button" id="try-auto-pairing" class="btn btn-outline-primary">${t(
@@ -407,6 +454,65 @@ function renderPairingDraft(tournament, state, t, getPlayerName) {
             "backToTournament"
           )}</button>
           <button type="button" id="start-round" class="btn btn-primary">${t("startRound")}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSwissResultsDraft(tournament, t, getPlayerName) {
+  const draft = tournament.currentRoundDraft;
+  const tableResults = draft.results || [];
+
+  const rows = draft.pairing.tables
+    .map((table, index) => {
+      if (!table.a || !table.b) {
+        return "";
+      }
+
+      const currentResult = tableResults[index] || { winner: "" };
+      const buttonA = currentResult.winner === "a" ? "selected" : "";
+      const buttonB = currentResult.winner === "b" ? "selected" : "";
+      const buttonDraw = currentResult.winner === "draw" ? "selected" : "";
+      const playerAName = escapeHtml(getPlayerName(tournament, table.a));
+      const playerBName = escapeHtml(getPlayerName(tournament, table.b));
+      const playerAResultLabel = `${playerAName} ${t("resultWinA")}`;
+      const playerBResultLabel = `${playerBName} ${t("resultWinB")}`;
+
+      return `
+        <div class="card mb-3">
+          <div class="card-body">
+            <h4 class="h6 mb-3">${t("tables")} #${table.tableNumber}</h4>
+            <div class="d-flex flex-column flex-md-row gap-2">
+              <div class="fw-semibold">${playerAName}</div>
+              <div class="fw-semibold">vs</div>
+              <div class="fw-semibold">${playerBName}</div>
+            </div>
+            <div class="mt-3">
+              <select class="form-select swiss-result-select" data-result-index="${index}">
+                <option value="">${t("resultSelect")}</option>
+                <option value="a" ${buttonA ? "selected" : ""}>${playerAResultLabel}</option>
+                <option value="b" ${buttonB ? "selected" : ""}>${playerBResultLabel}</option>
+                <option value="draw" ${buttonDraw ? "selected" : ""}>${t("resultDraw")}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  return `
+    ${renderRoundStageHeader(tournament, "pairing", t)}
+    <div class="card shadow-sm mt-3">
+      <div class="card-body">
+        <h3 class="h5 mb-3">${t("nextStepResults")}</h3>
+        ${rows}
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <button type="button" id="back-to-pairing" class="btn btn-outline-secondary">${t(
+            "backToPairing"
+          )}</button>
+          <button type="button" id="finish-round" class="btn btn-primary">${t("finishRound")}</button>
         </div>
       </div>
     </div>
@@ -500,7 +606,12 @@ export function renderTournamentView({ getCurrentTournament, state, t, getPlayer
       ${renderRoundHistory(tournament, t, getPlayerName)}
     `;
   } else if (tournament.currentRoundDraft.phase === "pairing") {
-    content = renderPairingDraft(tournament, state, t, getPlayerName);
+    content =
+      tournament.tournamentType === "swiss"
+        ? renderPairingDraft(tournament, state, t, getPlayerName)
+        : renderPairingDraft(tournament, state, t, getPlayerName);
+  } else if (tournament.currentRoundDraft.phase === "results") {
+    content = renderSwissResultsDraft(tournament, t, getPlayerName);
   } else {
     content = renderRankingDraft(tournament, t, getPlayerName);
   }

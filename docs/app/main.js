@@ -19,6 +19,7 @@ const uiState = {
   view: "home",
   setupMode: "create",
   setupTournamentId: null,
+  setupTournamentType: "manual",
   setupReturnView: "home",
   notifications: [],
 };
@@ -71,10 +72,11 @@ function openHomeView() {
   uiState.view = "home";
 }
 
-function openSetupView(mode, tournamentId = null, returnView = "home") {
+function openSetupView(mode, tournamentId = null, returnView = "home", tournamentType = "manual") {
   uiState.view = "setup";
   uiState.setupMode = mode;
   uiState.setupTournamentId = tournamentId;
+  uiState.setupTournamentType = tournamentType;
   uiState.setupReturnView = returnView;
 }
 

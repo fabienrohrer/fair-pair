@@ -8,6 +8,7 @@ import {
   getByeCounts,
   isValidPairingAssignment,
 } from "../docs/pairing.js";
+import { generateSwissPairingProposal } from "../docs/swiss.js";
 
 function makePlayers(count) {
   return Array.from({ length: count }, (_, index) => ({
@@ -258,6 +259,41 @@ test("random mode reshuffles the bye as well as all other players", () => {
     first.matches.map((match) => [match.a, match.b].sort().join("-")),
     second.matches.map((match) => [match.a, match.b].sort().join("-"))
   );
+});
+
+test("swiss pairing prioritizes similar scores and avoids prior opponents", () => {
+  const players = makePlayers(6);
+  const rounds = [
+    {
+      matches: [
+        { a: "p1", b: "p2" },
+        { a: "p3", b: "p4" },
+        { a: "p5", b: "p6" },
+      ],
+      results: [
+        { a: "p1", b: "p2", winner: "a" },
+        { a: "p3", b: "p4", winner: "b" },
+        { a: "p5", b: "p6", winner: "draw" },
+      ],
+    },
+  ];
+
+  const proposal = generateSwissPairingProposal({ players, rounds, randomSeed: 9 });
+  assert.equal(proposal.byePlayerId, null);
+  assert.equal(proposal.matches.length, 3);
+
+  const pairIds = proposal.matches.map((match) => [match.a, match.b].sort().join("-"));
+  const observedPairs = new Set(pairIds);
+  assert.equal(observedPairs.has("p1-p2"), false);
+  assert.equal(observedPairs.has("p3-p4"), false);
+  assert.equal(observedPairs.has("p5-p6"), false);
+});
+
+test("swiss pairing gives a bye when the field is odd", () => {
+  const players = makePlayers(5);
+  const proposal = generateSwissPairingProposal({ players, rounds: [], randomSeed: 4 });
+  assert.equal(proposal.matches.length, 2);
+  assert.ok(proposal.byePlayerId);
 });
 
 test("pairing validation enforces complete unique assignments", () => {

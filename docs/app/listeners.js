@@ -4,6 +4,7 @@ import {
   generatePairingProposal,
   isValidPairingAssignment,
 } from "../pairing.js";
+import { buildSwissRankingGroups, generateSwissPairingProposal } from "../swiss.js";
 import {
   applyTournamentEdits,
   createRoundDraft,
@@ -388,6 +389,20 @@ export function attachSetupListeners({
     render();
   });
 
+  document.querySelectorAll(".tournament-type-option").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextType = button.dataset.tournamentType;
+      uiState.setupTournamentType = nextType;
+      const hiddenInput = document.getElementById("tournament-type");
+      if (hiddenInput) {
+        hiddenInput.value = nextType;
+      }
+      document.querySelectorAll(".tournament-type-option").forEach((option) => {
+        option.classList.toggle("selected", option.dataset.tournamentType === nextType);
+      });
+    });
+  });
+
   document.getElementById("setup-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     const name = document.getElementById("tournament-name").value.trim();
@@ -416,7 +431,12 @@ export function attachSetupListeners({
           return;
         }
       }
-      const updated = applyTournamentEdits(current, { name, playerNames }, { resetRounds });
+      const selectedTournamentType = document.getElementById("tournament-type")?.value || uiState.setupTournamentType || "manual";
+      const updated = applyTournamentEdits(
+        current,
+        { name, playerNames },
+        { resetRounds, tournamentType: selectedTournamentType }
+      );
       state.tournaments = state.tournaments.map((item) => (item.id === updated.id ? updated : item));
       selectTournament(updated.id);
       if (uiState.setupReturnView === "tournament") {
@@ -429,6 +449,7 @@ export function attachSetupListeners({
         id: createTournamentId(),
         name,
         playerNames,
+        tournamentType: document.getElementById("tournament-type")?.value || uiState.setupTournamentType || "manual",
       });
       state.tournaments.push(created);
       openTournamentView(created.id);
@@ -458,7 +479,10 @@ export function attachTournamentListeners({
 
   document.getElementById("prepare-round")?.addEventListener("click", () => {
     commitTournamentChange(tournament, saveState, render, () => {
-      tournament.currentRoundDraft = createRoundDraft(currentPlayerIds(tournament));
+      tournament.currentRoundDraft = createRoundDraft(
+        currentPlayerIds(tournament),
+        tournament.tournamentType || "manual"
+      );
     });
   });
 
@@ -494,16 +518,29 @@ export function attachTournamentListeners({
       const nextRandomSeed = Date.now() + Math.floor(Math.random() * 1000000);
       draft.autoOptions.randomSeed = nextRandomSeed;
 
-      const proposal = generatePairingProposal({
-        players: tournament.players,
-        rounds: tournament.rounds,
-        rankingGroups: tournament.rankingGroups,
-        mode: draft.autoOptions.mode,
-        byeStrategy: draft.autoOptions.byeStrategy,
-        priorityOrder: draft.autoOptions.priorityOrder,
-        randomSeed: nextRandomSeed,
-      });
+      const shouldUseRandomOnly = tournament.rounds.length === 0;
+      const isSwissTournament = tournament.tournamentType === "swiss";
+      const effectiveMode =
+        isSwissTournament || (shouldUseRandomOnly && draft.autoOptions.mode === "automatic")
+          ? "random"
+          : draft.autoOptions.mode;
 
+      const proposal =
+        isSwissTournament
+          ? generateSwissPairingProposal({
+              players: tournament.players,
+              rounds: tournament.rounds,
+              randomSeed: nextRandomSeed,
+            })
+          : generatePairingProposal({
+              players: tournament.players,
+              rounds: tournament.rounds,
+              rankingGroups: tournament.rankingGroups,
+              mode: effectiveMode,
+              byeStrategy: draft.autoOptions.byeStrategy,
+              priorityOrder: draft.autoOptions.priorityOrder,
+              randomSeed: nextRandomSeed,
+            });
       const freshSlots = createEmptyPairingSlots(tournament.players.length);
       proposal.matches.forEach((match, index) => {
         freshSlots[index].a = match.a;
@@ -535,9 +572,69 @@ export function attachTournamentListeners({
         return;
       }
       commitTournamentChange(tournament, saveState, render, () => {
-        draft.phase = "ranking";
-        normalizeDraftRanking(tournament);
+        draft.phase = tournament.tournamentType === "swiss" ? "results" : "ranking";
+        if (tournament.tournamentType !== "swiss") {
+          normalizeDraftRanking(tournament);
+        }
+        if (tournament.tournamentType === "swiss") {
+          draft.results = draft.pairing.tables.map((table) => ({
+            a: table.a,
+            b: table.b,
+            winner: "",
+          }));
+        }
       });
+    });
+  }
+
+  if (tournament.currentRoundDraft?.phase === "results") {
+    document.querySelectorAll(".swiss-result-select").forEach((element) => {
+      element.addEventListener("change", () => {
+        const draft = tournament.currentRoundDraft;
+        const index = Number(element.dataset.resultIndex);
+        if (!draft || Number.isNaN(index)) {
+          return;
+        }
+        draft.results[index] = {
+          a: draft.pairing.tables[index]?.a || null,
+          b: draft.pairing.tables[index]?.b || null,
+          winner: element.value,
+        };
+        touchTournament(tournament, saveState, render);
+      });
+    });
+
+    document.getElementById("back-to-pairing")?.addEventListener("click", () => {
+      if (!window.confirm(t("confirmDiscardDraft"))) {
+        return;
+      }
+      const draft = tournament.currentRoundDraft;
+      commitTournamentChange(tournament, saveState, render, () => {
+        draft.phase = "pairing";
+      });
+    });
+
+    document.getElementById("finish-round")?.addEventListener("click", () => {
+      const draft = tournament.currentRoundDraft;
+      const hasMissingResult = draft.results.some((result) => !result || !result.winner);
+      if (hasMissingResult) {
+        notify(t("resultRequired"), { variant: "danger" });
+        return;
+      }
+      commitTournamentChange(tournament, saveState, render, () => {
+        const nextRound = {
+          byePlayerId: draft.pairing.byePlayerId || null,
+          matches: draft.pairing.tables
+            .filter((table) => table.a && table.b)
+            .map((table) => ({ a: table.a, b: table.b })),
+          results: draft.results,
+          rankingGroups: [],
+        };
+        tournament.rounds.push(nextRound);
+        tournament.rankingGroups = buildSwissRankingGroups(tournament.players, tournament.rounds);
+        tournament.currentRoundDraft = null;
+      });
+      notify(t("roundSaved"), { variant: "success" });
     });
   }
 
@@ -545,6 +642,9 @@ export function attachTournamentListeners({
     attachRankingDnD(tournament, { saveState, render });
 
     document.getElementById("back-to-pairing")?.addEventListener("click", () => {
+      if (!window.confirm(t("confirmDiscardDraft"))) {
+        return;
+      }
       const draft = tournament.currentRoundDraft;
       commitTournamentChange(tournament, saveState, render, () => {
         draft.phase = "pairing";

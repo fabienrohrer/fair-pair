@@ -6,14 +6,15 @@
 
 **Fair Pair** is a lightweight vibe-coded browser app that helps a tournament organizer build the **next round pairings** with a visual interface.
 
-The app does **not** compute match winners, points, or Swiss standings. The organizer remains the source of truth for scoring outside the app.
+The app supports manual ranking rounds and a Swiss-system mode where pairings follow current scores and the organizer enters match results after each round.
 
 ## Product scope
 
 - Manage multiple tournaments locally.
-- For each round, guide the organizer through **two explicit views**:
-  1. **Pairing view:** assign players to tables (and optional BYE) by drag and drop.
-  2. **Ranking view:** set the global ranking manually (with ties) by drag and drop.
+- Support multiple tournament types:
+  - **Manual ranking rounds:** pair players from the current ranking and set the next order manually.
+  - **Swiss system:** pair players by current score while avoiding rematches and track match results round by round.
+- For each round, guide the organizer through a clear flow adapted to the tournament type.
 - Keep pairing helper algorithms available, but always let the organizer override manually.
 
 ## Features

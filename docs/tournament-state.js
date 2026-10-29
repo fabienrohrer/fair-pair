@@ -1,6 +1,23 @@
 import { createEmptyPairingSlots, flattenRankingGroups } from "./pairing.js";
 
-export const STORAGE_KEY = "fair-pair:tournaments:v3";
+export const STORAGE_KEY = "fair-pair:tournaments:v4";
+
+export const TOURNAMENT_TYPES = {
+  manual: {
+    id: "manual",
+    label: "Manual ranking rounds",
+    description: "Pair players from the current ranking and set the next order manually.",
+  },
+  swiss: {
+    id: "swiss",
+    label: "Swiss system",
+    description: "Pair players by current score while avoiding rematches and tracking match results.",
+  },
+};
+
+export function getTournamentTypeConfig(tournamentType) {
+  return TOURNAMENT_TYPES[tournamentType] || TOURNAMENT_TYPES.manual;
+}
 
 export function createPlayerId(index) {
   return `p${index + 1}`;
@@ -66,8 +83,8 @@ export function normalizeRankingGroups(rankingGroups, playerIds) {
   return normalized;
 }
 
-export function createRoundDraft(playerIds) {
-  return {
+export function createRoundDraft(playerIds, tournamentType = "manual") {
+  const draft = {
     phase: "pairing",
     autoOptions: {
       mode: "automatic",
@@ -81,15 +98,22 @@ export function createRoundDraft(playerIds) {
     },
     rankingGroups: createInitialRankingGroups(playerIds),
   };
+
+  if (tournamentType === "swiss") {
+    draft.results = [];
+  }
+
+  return draft;
 }
 
-export function createTournamentFromForm({ id, name, playerNames }) {
+export function createTournamentFromForm({ id, name, playerNames, tournamentType = "manual" }) {
   const players = createPlayersWithPersistentHues(playerNames);
   const playerIds = players.map((player) => player.id);
 
   return {
     id,
     name,
+    tournamentType: getTournamentTypeConfig(tournamentType).id,
     players,
     rounds: [],
     rankingGroups: createInitialRankingGroups(playerIds),
@@ -114,10 +138,11 @@ export function needsRoundReset(tournament, formData) {
   return false;
 }
 
-export function applyTournamentEdits(tournament, formData, { resetRounds }) {
+export function applyTournamentEdits(tournament, formData, { resetRounds, tournamentType = tournament.tournamentType || "manual" }) {
   const updated = {
     ...tournament,
     name: formData.name,
+    tournamentType: getTournamentTypeConfig(tournamentType).id,
     updatedAt: Date.now(),
   };
   if (!resetRounds) {
@@ -203,9 +228,12 @@ function migrateLegacyTournament(tournament, idFallback = "legacy-1") {
       ? rounds[rounds.length - 1].rankingGroups
       : baseRanking;
 
+  const tournamentType = tournament.tournamentType === "swiss" ? "swiss" : "manual";
+
   return {
     id: tournament.id || idFallback,
     name: tournament.name || "Tournament",
+    tournamentType: getTournamentTypeConfig(tournamentType).id,
     players,
     rounds,
     rankingGroups: normalizeRankingGroups(lastRanking, playerIds),
