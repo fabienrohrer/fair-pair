@@ -53,6 +53,10 @@ main {
   pointer-events: auto;
 }
 
+.fp-notification-stack [data-notification-toggle] {
+  pointer-events: auto;
+}
+
 .fp-notification-shadow {
   box-shadow: 0 0.75rem 1.8rem rgb(1 6 17 / 40%);
 }

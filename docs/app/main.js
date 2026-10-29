@@ -3,12 +3,15 @@ import { normalizeSwissSettings } from "../swiss.js";
 import { NOTIFICATION_DEFAULT_DURATION_MS, NOTIFICATION_LIMIT, messages } from "./constants.js";
 import {
   renderHomeView,
-  renderNotificationStack,
   renderSetupView,
   renderTournamentView,
 } from "./renderers.js";
 import { appBarComponent } from "./components/app-bar-component.js";
+import { appFooterComponent } from "./components/app-footer-component.js";
 import { bindRenderedComponents, renderComponent } from "./components/core/runtime.js";
+import { homeHeroComponent } from "./components/home-hero-component.js";
+import { homeToolbarComponent } from "./components/home-toolbar-component.js";
+import { notificationStackComponent } from "./components/notification-stack-component.js";
 import {
   attachGlobalListeners,
   attachHomeListeners,
@@ -124,13 +127,27 @@ function notify(message, options = {}) {
 }
 
 function render() {
+  const isHomeView = uiState.view === "home";
+  const homeHeroContent = isHomeView
+    ? renderComponent(homeHeroComponent, {
+        key: "home-main-hero",
+        props: { t, requestRender: render },
+      })
+    : "";
+  const homeToolbarContent = isHomeView
+    ? renderComponent(homeToolbarComponent, {
+        key: "home-main-toolbar",
+        props: { t },
+      })
+    : "";
+
   let viewContent = "";
   if (uiState.view === "setup") {
     viewContent = renderSetupView({ uiState, getTournamentById, t });
   } else if (uiState.view === "tournament") {
     viewContent = renderTournamentView({ getCurrentTournament, state, t, getPlayerName });
   } else {
-    viewContent = renderHomeView({ state, t });
+    viewContent = renderHomeView({ state, t, homeHeroContent, homeToolbarContent });
   }
 
   const appBar = renderComponent(appBarComponent, {
@@ -148,29 +165,19 @@ function render() {
       },
     },
   });
+  const notificationStack = renderComponent(notificationStackComponent, {
+    key: "main",
+    props: { uiState, t, requestRender: render },
+  });
+  const appFooter = renderComponent(appFooterComponent, {
+    key: "main",
+  });
 
   root.innerHTML = `
     ${appBar}
-    ${renderNotificationStack({ uiState, t })}
+    ${notificationStack}
     ${viewContent}
-    <footer class="fairpair-footer mt-4">
-      <div class="fairpair-footer-inner">
-        <div class="fairpair-footer-brand">
-          <img class="brand-logo fairpair-footer-logo" src="./fair-pair-logo.svg" alt="Fair Pair logo" />
-        </div>
-        <div class="fairpair-footer-meta">
-          <a href="https://github.com/fabienrohrer/fair-pair" target="_blank" rel="noopener noreferrer" class="fairpair-icon-link" aria-label="Fair Pair on GitHub">
-            <i class="bi bi-github fairpair-icon"></i>
-            <span>GitHub</span>
-          </a>
-          <span class="fairpair-footer-dot">•</span>
-          <span>Open source</span>
-          <span class="fairpair-footer-dot">•</span>
-          <span>Made with AI</span>
-          <i class="bi bi-stars fairpair-icon fairpair-icon-small" aria-hidden="true"></i>
-        </div>
-      </div>
-    </footer>
+    ${appFooter}
   `;
 
   bindRenderedComponents();

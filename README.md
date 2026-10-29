@@ -45,6 +45,11 @@ The app supports manual ranking rounds and a Swiss-system mode where pairings fo
 - `localStorage` persistence.
 - No backend, no database, no build pipeline.
 
+## UI architecture note
+
+- Prefer lightweight home-made components from [`docs/app/components/`](/Users/fabien/repos/fair-pair/docs/app/components) built on the local runtime in [`docs/app/components/core/runtime.js`](/Users/fabien/repos/fair-pair/docs/app/components/core/runtime.js).
+- Keep tournament/business rules in pure modules ([`docs/pairing.js`](/Users/fabien/repos/fair-pair/docs/pairing.js), [`docs/tournament-state.js`](/Users/fabien/repos/fair-pair/docs/tournament-state.js), [`docs/swiss.js`](/Users/fabien/repos/fair-pair/docs/swiss.js)); components should focus on rendering and UI interactions.
+
 ## Suggested structure
 
 ```text
@@ -61,7 +66,11 @@ fair-pair/
     │   ├── constants.js       # i18n messages + UI constants
     │   ├── utils.js           # Shared app utilities
     │   └── components/
-    │       ├── app-bar-component.js  # Example "home-made" UI component
+    │       ├── app-bar-component.js
+    │       ├── app-footer-component.js
+    │       ├── notification-stack-component.js
+    │       ├── home-hero-component.js
+    │       ├── home-toolbar-component.js
     │       └── core/
     │           └── runtime.js        # Tiny component runtime (render + bind)
     ├── pairing.js             # Pure pairing assistant logic

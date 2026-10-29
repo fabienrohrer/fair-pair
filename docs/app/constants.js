@@ -12,6 +12,10 @@ export const messages = {
     appTitle: "Fair Pair",
     language: "Language",
     closeNotification: "Close notification",
+    showNotifications: "Show notifications",
+    hideNotifications: "Hide notifications",
+    showHomeHero: "Show intro",
+    hideHomeHero: "Hide intro",
     homeHeroTitle: "Set the tables, not the stress.",
     homeHeroIntro:
       "Tournament planning, simplified. Fair Pair helps organizers build balanced rounds, keep rematches low, and keep the whole tournament clear from the first player to the final table.",
@@ -112,6 +116,10 @@ export const messages = {
     appTitle: "Fair Pair",
     language: "Langue",
     closeNotification: "Fermer la notification",
+    showNotifications: "Afficher les notifications",
+    hideNotifications: "Masquer les notifications",
+    showHomeHero: "Afficher l'intro",
+    hideHomeHero: "Masquer l'intro",
     homeHeroTitle: "Des tables équilibrées, sans la galère.",
     homeHeroIntro:
       "Organiser un tournoi sans friction. Fair Pair aide les organisateurs à préparer des rounds justes, limiter les rematches et garder une vue claire du tournoi avant chaque table.",

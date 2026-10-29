@@ -133,7 +133,7 @@ export function renderAppBar({ t, language }) {
   `;
 }
 
-export function renderHomeView({ state, t }) {
+export function renderHomeView({ state, t, homeHeroContent = "", homeToolbarContent = "" }) {
   const cards = state.tournaments
     .map((tournament) => {
       const selected = tournament.id === state.selectedTournamentId;
@@ -175,27 +175,9 @@ export function renderHomeView({ state, t }) {
     .join("");
 
   return `
-    <section class="fp-hero mb-4">
-      <div class="row align-items-center g-4">
-        <div class="col-12">
-          <h1 class="fp-hero-title">${t("homeHeroTitle")}</h1>
-          <p class="fp-hero-copy">${t("homeHeroIntro")}</p>
-          <div class="fp-hero-points">
-            <div class="fp-hero-point"><i class="bi bi-check-circle-fill"></i><span>${t("homeHeroPoint1")}</span></div>
-            <div class="fp-hero-point"><i class="bi bi-check-circle-fill"></i><span>${t("homeHeroPoint2")}</span></div>
-            <div class="fp-hero-point"><i class="bi bi-check-circle-fill"></i><span>${t("homeHeroPoint3")}</span></div>
-          </div>
-        </div>
-      </div>
-    </section>
+    ${homeHeroContent}
     <section>
-      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <h1 class="h4 mb-0">${t("homeTitle")}</h1>
-        <div class="d-flex gap-2">
-          <button id="add-tournament" class="btn btn-primary">+ ${t("addTournament")}</button>
-          <button id="reset-all" class="btn btn-outline-danger">${t("resetAll")}</button>
-        </div>
-      </div>
+      ${homeToolbarContent}
       ${
         cards
           ? `<div class="row g-3">${cards}</div>`
@@ -736,7 +718,7 @@ export function renderTournamentView({ getCurrentTournament, state, t, getPlayer
   `;
 }
 
-export function renderNotificationStack({ uiState, t }) {
+export function renderNotificationStack({ uiState, t, wrap = true }) {
   if (uiState.notifications.length === 0) {
     return "";
   }
@@ -750,6 +732,10 @@ export function renderNotificationStack({ uiState, t }) {
       `
     )
     .join("");
+
+  if (!wrap) {
+    return items;
+  }
 
   return `<section class="fp-notification-stack" aria-label="Notifications">${items}</section>`;
 }
