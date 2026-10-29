@@ -30,6 +30,35 @@ function parseMatches(spec) {
   });
 }
 
+function seededNext(seed) {
+  let value = seed | 0;
+  value ^= value << 13;
+  value ^= value >> 17;
+  value ^= value << 5;
+  return value | 0;
+}
+
+function buildRandomRankingGroups(playerIds, seed) {
+  const shuffled = playerIds.slice();
+  let nextSeed = seed;
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    nextSeed = seededNext(nextSeed + index * 17 + 11);
+    const swapIndex = Math.abs(nextSeed) % (index + 1);
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  const groups = [];
+  let cursor = 0;
+  while (cursor < shuffled.length) {
+    nextSeed = seededNext(nextSeed + cursor * 31 + 7);
+    const remaining = shuffled.length - cursor;
+    const size = Math.min(remaining, 1 + (Math.abs(nextSeed) % 3));
+    groups.push(shuffled.slice(cursor, cursor + size));
+    cursor += size;
+  }
+  return { groups, seed: nextSeed };
+}
+
 function runAutoScenario(scenario) {
   const players = makePlayers(scenario.playerCount);
   const rankingGroups = parseRanking(scenario.ranking);
@@ -275,4 +304,92 @@ test("bye counters are derived from rounds", () => {
   ]);
   assert.equal(counts.p1, 2);
   assert.equal(counts.p2, 0);
+});
+
+test("high-level flow with 25 players keeps unique opponents and unique BYEs", () => {
+  const playerNames = "abcdefghijklmnopqrstuvwxy".split("");
+  const players = playerNames.map((name, index) => ({
+    id: `p${index + 1}`,
+    name,
+  }));
+  const playerIds = players.map((player) => player.id);
+  const baseSeed = Math.floor(Date.now() / 1000);
+
+  for (let runIndex = 0; runIndex < 5; runIndex += 1) {
+    const rounds = [];
+    const seenPairs = new Set();
+    const seenByes = new Set();
+    let seed = baseSeed + runIndex * 997;
+    let rankingGroups = playerIds.map((id) => [id]);
+
+    const firstRound = generatePairingProposal({
+      players,
+      rounds,
+      rankingGroups,
+      mode: "random",
+      byeStrategy: "random",
+      priorityOrder: ["avoid_rematch", "minimize_gap", "bye_fairness"],
+      randomSeed: seed,
+    });
+
+    for (const match of firstRound.matches) {
+      const pairKey = [match.a, match.b].sort().join("-");
+      assert.equal(
+        seenPairs.has(pairKey),
+        false,
+        `duplicate matchup in first round (run ${runIndex + 1}): ${pairKey}`
+      );
+      seenPairs.add(pairKey);
+    }
+    assert.ok(firstRound.byePlayerId);
+    seenByes.add(firstRound.byePlayerId);
+    rounds.push({
+      byePlayerId: firstRound.byePlayerId,
+      matches: firstRound.matches,
+      rankingGroups,
+    });
+
+    for (let roundNumber = 1; roundNumber <= 7; roundNumber += 1) {
+      const nextRanking = buildRandomRankingGroups(playerIds, seed + roundNumber * 101);
+      rankingGroups = nextRanking.groups;
+      seed = nextRanking.seed;
+
+      const proposal = generatePairingProposal({
+        players,
+        rounds,
+        rankingGroups,
+        mode: "automatic",
+        byeStrategy: "worst",
+        priorityOrder: ["avoid_rematch", "minimize_gap", "bye_fairness"],
+        randomSeed: seed + roundNumber,
+      });
+
+      for (const match of proposal.matches) {
+        const pairKey = [match.a, match.b].sort().join("-");
+        assert.equal(
+          seenPairs.has(pairKey),
+          false,
+          `rematch found at round ${roundNumber + 1} (run ${runIndex + 1}): ${pairKey}`
+        );
+        seenPairs.add(pairKey);
+      }
+
+      assert.ok(proposal.byePlayerId, `expected BYE at round ${roundNumber + 1} (run ${runIndex + 1})`);
+      assert.equal(
+        seenByes.has(proposal.byePlayerId),
+        false,
+        `BYE repeated at round ${roundNumber + 1} (run ${runIndex + 1}): ${proposal.byePlayerId}`
+      );
+      seenByes.add(proposal.byePlayerId);
+
+      rounds.push({
+        byePlayerId: proposal.byePlayerId,
+        matches: proposal.matches,
+        rankingGroups,
+      });
+    }
+
+    assert.equal(rounds.length, 8);
+    assert.equal(seenByes.size, 8);
+  }
 });
