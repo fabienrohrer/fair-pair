@@ -330,6 +330,7 @@ test("swiss standings expose points and Buchholz", () => {
   ];
 
   const standings = buildSwissStandingsData(players, rounds, normalizeSwissSettings());
+  assert.equal(standings[0].id, "p1");
   assert.equal(standings[0].playerId, "p1");
   assert.equal(standings[0].score, 2);
   assert.equal(standings[0].buchholz, 0.5);

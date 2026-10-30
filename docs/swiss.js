@@ -157,6 +157,7 @@ export function buildSwissStandingsData(players, rounds, settings = DEFAULT_SWIS
 
   return [...players]
     .map((player) => ({
+      id: player.id,
       playerId: player.id,
       name: player.name || player.id,
       score: scoreMap.get(player.id) || 0,
