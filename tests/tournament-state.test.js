@@ -6,15 +6,18 @@ import {
   createInitialRankingGroups,
   createInitialState,
   getPairingStageRules,
+  getPlayerAge,
   createRoundDraft,
   createTournamentFromForm,
   migrateLoadedState,
   needsRoundReset,
+  normalizePlayerEntries,
   normalizeRankingGroups,
   removeTournamentFromCollection,
   resolveAutoPairingMode,
   selectDefaultTournamentId,
 } from "../docs/tournament-state.js";
+import { parseImportedPlayersText } from "../docs/app/utils.js";
 
 test("createTournamentFromForm initializes ranking and draft state", () => {
   const tournament = createTournamentFromForm({
@@ -152,6 +155,52 @@ test("createInitialState returns empty multi-tournament model", () => {
     selectedTournamentId: null,
     tournaments: [],
   });
+});
+
+test("getPlayerAge calculates age from date of birth", () => {
+  const date = new Date("2025-10-30T12:00:00");
+  assert.equal(getPlayerAge({ dateOfBirth: "2000-10-29" }, date), 25);
+  assert.equal(getPlayerAge({ dateOfBirth: "2000-10-31" }, date), 24);
+  assert.equal(getPlayerAge({ dateOfBirth: null }, date), null);
+});
+
+test("player hues are deterministic and based on the player name seed", () => {
+  const tournamentA = createTournamentFromForm({
+    id: "h1",
+    name: "Seeded colors",
+    playerNames: ["Alice", "Bob", "Claire"],
+  });
+  const tournamentB = createTournamentFromForm({
+    id: "h2",
+    name: "Seeded colors again",
+    playerNames: ["Alice", "Bob", "Claire"],
+  });
+
+  assert.deepEqual(
+    tournamentA.players.map((player) => player.hue),
+    tournamentB.players.map((player) => player.hue)
+  );
+  assert.notEqual(tournamentA.players[0].hue, tournamentA.players[1].hue);
+  assert.ok(tournamentA.players.every((player) => player.hue >= 0 && player.hue <= 359));
+});
+
+test("normalizePlayerEntries assigns a seeded hue even when the raw object has none", () => {
+  const players = normalizePlayerEntries([
+    { id: "p1", name: "Rambo John" },
+    { id: "p2", name: "A" },
+    { id: "p3", name: "B" },
+  ]);
+
+  assert.deepEqual(players.map((player) => player.hue), [142, 282, 65]);
+  assert.ok(players.every((player) => player.hue >= 0 && player.hue <= 359));
+});
+
+test("parseImportedPlayersText accepts one-per-line names with optional birth dates", () => {
+  assert.deepEqual(parseImportedPlayersText("Alice\nBob, 2000-05-12\nClaire, 2024-02-29"), [
+    { name: "Alice", dateOfBirth: null },
+    { name: "Bob", dateOfBirth: "2000-05-12" },
+    { name: "Claire", dateOfBirth: "2024-02-29" },
+  ]);
 });
 
 test("selectDefaultTournamentId and removeTournamentFromCollection stay consistent", () => {

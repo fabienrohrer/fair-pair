@@ -19,10 +19,10 @@ The app supports manual ranking rounds and a Swiss-system mode where pairings fo
 
 ## Features
 
-- **Tournament setup and root management:** create/open/delete tournaments from a home grid. Tournament setup only requires a name and the player list.
+- **Tournament setup and root management:** create/open/delete tournaments from a home grid. Tournament setup requires a name and a dedicated player manager with add/edit/delete actions, optional birth date metadata, and persistent player chips.
 - **Mode-aware pairing workflow:** round-1 pairing is manual-first in both tournament types, while later rounds follow each mode's rules (editable pairing for manual ranking rounds, locked Swiss pairing from round 2).
 - **Touch-friendly drag and drop:** pairing and ranking drag-and-drop are designed to work on tablets (touch/pen) and desktop pointer devices.
-- **Persistent player color labels:** each player gets a dedicated color chip when the tournament is created, and keeps that label consistently across pairing and ranking views.
+- **Persistent player chips and metadata:** each player gets a dedicated color chip when the tournament is created, keeps that label consistently across pairing and ranking views, and can carry optional birth-date metadata with age and hue derived automatically for tooltips and category grouping.
 - **Automatic pairing assistant (optional):** inside the pairing view, a dedicated panel lets the organizer choose:
   - mode: random, automatic, or registration order (depending on tournament type and current round),
   - BYE strategy: random eligible or lowest-ranked eligible,

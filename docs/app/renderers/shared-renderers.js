@@ -1,4 +1,5 @@
 import { PRIORITY_ORDERS } from "../constants.js";
+import { playerChipComponent } from "../components/player-chip-component.js";
 import { escapeHtml } from "../utils.js";
 
 export function getPriorityLabel(priorityOrder, language, t) {
@@ -62,32 +63,6 @@ export function getPairingUnassignedIds(tournament) {
   return currentPlayerIds(tournament).filter((id) => !assignedSet.has(id));
 }
 
-function fallbackHueFromPlayerId(playerId) {
-  const safe = `${playerId}`;
-  let hash = 0;
-  for (let index = 0; index < safe.length; index += 1) {
-    hash = safe.charCodeAt(index) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash) % 360;
-}
-
-function getPlayerHue(tournament, playerId) {
-  const playerHue = tournament.players.find((player) => player.id === playerId)?.hue;
-  if (Number.isFinite(playerHue)) {
-    const normalized = Math.round(playerHue) % 360;
-    return normalized < 0 ? normalized + 360 : normalized;
-  }
-  return fallbackHueFromPlayerId(playerId);
-}
-
-function getPlayerColorStyle(hue) {
-  const start = (hue + 18) % 360;
-  return {
-    background: `linear-gradient(135deg, hsl(${hue} 80% 62%) 0%, hsl(${start} 80% 68%) 100%)`,
-    boxShadow: `0 0.35rem 0.8rem hsl(${hue} 80% 55% / 25%)`,
-  };
-}
-
 export function renderPlayerChip(
   tournament,
   playerId,
@@ -96,20 +71,16 @@ export function renderPlayerChip(
   getPlayerName,
   isDraggable = true
 ) {
-  const palette = getPlayerColorStyle(getPlayerHue(tournament, playerId));
-  return `
-    <button
-      type="button"
-      class="player-chip"
-      draggable="${isDraggable ? "true" : "false"}"
-      data-drag-type="${dragType}"
-      data-player-id="${escapeHtml(playerId)}"
-      data-origin="${escapeHtml(origin)}"
-      style="background: ${palette.background}; box-shadow: ${palette.boxShadow};"
-    >
-      ${escapeHtml(getPlayerName(tournament, playerId))}
-    </button>
-  `;
+  return playerChipComponent.render({
+    props: {
+      tournament,
+      playerId,
+      dragType,
+      origin,
+      getPlayerName,
+      isDraggable,
+    },
+  });
 }
 
 export function buildPriorityOptions(priorityValue, language, t) {

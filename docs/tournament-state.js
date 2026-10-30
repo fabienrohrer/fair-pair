@@ -65,23 +65,101 @@ function normalizeHue(value) {
   return normalized < 0 ? normalized + 360 : normalized;
 }
 
-function createRainbowHues(playerCount) {
-  if (playerCount <= 0) {
-    return [];
+export function sanitizeDateOfBirth(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
   }
-  const startHue = Math.floor(Math.random() * 360);
-  const step = 360 / playerCount;
-  return Array.from({ length: playerCount }, (_, index) =>
-    normalizeHue(startHue + index * step)
-  );
+
+  const rawValue = `${value}`.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
+    return null;
+  }
+
+  const safeDate = new Date(`${rawValue}T12:00:00`);
+  if (Number.isNaN(safeDate.getTime())) {
+    return null;
+  }
+
+  return rawValue;
 }
 
-function createPlayersWithPersistentHues(playerNames) {
-  const hues = createRainbowHues(playerNames.length);
-  return playerNames.map((playerName, index) => ({
-    id: createPlayerId(index),
-    name: playerName,
-    hue: hues[index],
+export function getPlayerAge(player, referenceDate = new Date()) {
+  const dateOfBirth = sanitizeDateOfBirth(player?.dateOfBirth);
+  if (!dateOfBirth) {
+    return null;
+  }
+
+  const birthDate = new Date(`${dateOfBirth}T12:00:00`);
+  const today = new Date(referenceDate);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const hasBirthdayPassed =
+    today.getMonth() > birthDate.getMonth() ||
+    (today.getMonth() === birthDate.getMonth() && today.getDate() >= birthDate.getDate());
+
+  if (!hasBirthdayPassed) {
+    age -= 1;
+  }
+
+  return age;
+}
+
+export function normalizePlayerEntries(playerEntries = []) {
+  const entries = Array.isArray(playerEntries) ? playerEntries : [];
+  return entries.map((entry, index) => {
+    if (typeof entry === "string" || typeof entry === "number") {
+      const name = `${entry}`.trim();
+      return {
+        id: createPlayerId(index),
+        name: name || `Player ${index + 1}`,
+        hue: createHueFromPlayerName(name || `Player ${index + 1}`, index),
+        dateOfBirth: null,
+      };
+    }
+
+    const rawName = `${entry?.name ?? ""}`.trim();
+    const name = rawName || `Player ${index + 1}`;
+    return {
+      id: entry?.id || createPlayerId(index),
+      name,
+      hue: normalizeHue(entry?.hue) ?? createHueFromPlayerName(name, index),
+      dateOfBirth: sanitizeDateOfBirth(entry?.dateOfBirth),
+    };
+  });
+}
+
+function createSeededRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let result = Math.imul(state ^ (state >>> 15), 1 | state);
+    result = (result + Math.imul(result ^ (result >>> 7), 61 | result)) ^ result;
+    return ((result ^ (result >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function createHueFromPlayerName(name, index) {
+  const seed = `${name || "player"}-${index}`.split("").reduce((hash, char) => {
+    return (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }, 2166136261);
+  const random = createSeededRandom(seed);
+  return Math.round(random() * 359);
+}
+
+function createRainbowHues(playerNames) {
+  if (!Array.isArray(playerNames) || playerNames.length === 0) {
+    return [];
+  }
+
+  return playerNames.map((playerName, index) => createHueFromPlayerName(playerName, index));
+}
+
+function createPlayersWithPersistentHues(playerEntries) {
+  const normalizedEntries = normalizePlayerEntries(playerEntries);
+  const hues = createRainbowHues(normalizedEntries.map((player) => player.name));
+  return normalizedEntries.map((player, index) => ({
+    ...player,
+    hue: normalizeHue(player.hue) ?? hues[index],
+    dateOfBirth: sanitizeDateOfBirth(player.dateOfBirth),
   }));
 }
 
@@ -143,11 +221,12 @@ export function createTournamentFromForm({
   id,
   name,
   playerNames,
+  players,
   tournamentType = "manual",
   swissSettings,
 }) {
-  const players = createPlayersWithPersistentHues(playerNames);
-  const playerIds = players.map((player) => player.id);
+  const normalizedPlayers = createPlayersWithPersistentHues(players ?? playerNames ?? []);
+  const playerIds = normalizedPlayers.map((player) => player.id);
   const normalizedType = getTournamentTypeConfig(tournamentType).id;
 
   return {
@@ -157,7 +236,7 @@ export function createTournamentFromForm({
     swissSettings: normalizeSwissSettings(
       normalizedType === "swiss" ? swissSettings : undefined
     ),
-    players,
+    players: normalizedPlayers,
     rounds: [],
     rankingGroups: createInitialRankingGroups(playerIds),
     currentRoundDraft: null,
@@ -170,14 +249,23 @@ export function needsRoundReset(tournament, formData) {
   if (!tournament) {
     return false;
   }
-  if (tournament.players.length !== formData.playerNames.length) {
+
+  const nextPlayers = normalizePlayerEntries(formData.players ?? formData.playerNames ?? []);
+  if (tournament.players.length !== nextPlayers.length) {
     return true;
   }
+
   for (let index = 0; index < tournament.players.length; index += 1) {
-    if (tournament.players[index].name !== formData.playerNames[index]) {
+    const current = tournament.players[index];
+    const next = nextPlayers[index];
+    if (!current || !next) {
+      return true;
+    }
+    if (current.name !== next.name || current.dateOfBirth !== next.dateOfBirth) {
       return true;
     }
   }
+
   return false;
 }
 
@@ -200,7 +288,7 @@ export function applyTournamentEdits(
     return updated;
   }
 
-  const players = createPlayersWithPersistentHues(formData.playerNames);
+  const players = createPlayersWithPersistentHues(formData.players ?? formData.playerNames ?? []);
   const playerIds = players.map((player) => player.id);
   return {
     ...updated,
@@ -248,10 +336,11 @@ function migrateLegacyRound(round) {
 
 function migrateLegacyTournament(tournament, idFallback = "legacy-1") {
   const legacyPlayers = tournament.players || [];
-  const fallbackHues = createRainbowHues(legacyPlayers.length);
+  const fallbackHues = createRainbowHues(
+    legacyPlayers.map((player) => player?.name || `Player ${legacyPlayers.indexOf(player) + 1}`)
+  );
   const players = legacyPlayers.map((player, index) => ({
-    id: player.id || createPlayerId(index),
-    name: player.name || `Player ${index + 1}`,
+    ...normalizePlayerEntries([player])[0],
     hue: normalizeHue(player.hue) ?? fallbackHues[index],
   }));
   const playerIds = players.map((player) => player.id);

@@ -40,6 +40,63 @@ main {
   flex-direction: column;
 }
 
+.modal-backdrop {
+  background: rgb(2 6 17 / 70%);
+}
+
+.modal-content {
+  border: 1px solid rgba(143, 174, 255, 0.22);
+  background: linear-gradient(180deg, rgba(19, 29, 45, 0.98) 0%, rgba(13, 22, 35, 0.98) 100%);
+  color: var(--fp-text);
+  box-shadow: 0 1.2rem 2.6rem rgb(1 6 17 / 45%);
+}
+
+.modal-header,
+.modal-footer {
+  border-color: var(--fp-border);
+}
+
+.modal-title,
+.modal-body,
+.modal-body p,
+.modal-body label,
+.form-label,
+.form-control,
+.form-select,
+.form-check-label,
+.modal-header,
+.modal-footer {
+  color: var(--fp-text);
+}
+
+.modal-body,
+.modal-footer {
+  background: rgba(8, 15, 25, 0.12);
+}
+
+.modal .form-control,
+.modal .form-select {
+  background: rgba(11, 18, 32, 0.72);
+  border-color: var(--fp-border);
+  color: var(--fp-text);
+}
+
+.modal .form-control::placeholder {
+  color: var(--fp-text-soft);
+}
+
+.modal .form-control:focus,
+.modal .form-select:focus {
+  border-color: rgba(91, 140, 255, 0.9);
+  box-shadow: 0 0 0 0.2rem rgb(91 140 255 / 18%);
+  background: rgba(11, 18, 32, 0.82);
+  color: var(--fp-text);
+}
+
+.modal .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
 .fp-notification-stack {
   position: fixed;
   top: 1rem;

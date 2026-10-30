@@ -3,11 +3,48 @@ export function detectDefaultLanguage() {
   return browserLanguage.startsWith("fr") ? "fr" : "en";
 }
 
+function normalizeDateOfBirth(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return null;
+  }
+
+  const date = new Date(`${trimmed}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? null : trimmed;
+}
+
 export function parsePlayersFromText(text) {
+  return parseImportedPlayersText(text).map((player) => player.name);
+}
+
+export function parseImportedPlayersText(text) {
   return text
-    .split("\n")
+    .split(/\r?\n/)
     .map((value) => value.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((entry) => {
+      const commaIndex = entry.indexOf(",");
+      if (commaIndex === -1) {
+        return { name: entry, dateOfBirth: null };
+      }
+
+      const namePart = entry.slice(0, commaIndex).trim();
+      const valuePart = entry.slice(commaIndex + 1).trim();
+      const dateOfBirth = normalizeDateOfBirth(valuePart);
+
+      if (!dateOfBirth) {
+        return { name: entry, dateOfBirth: null };
+      }
+
+      return {
+        name: namePart || entry,
+        dateOfBirth,
+      };
+    });
 }
 
 export function createTournamentId() {

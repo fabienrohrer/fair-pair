@@ -1,4 +1,5 @@
 import { buildSwissStandingsData, normalizeSwissSettings } from "../../swiss.js";
+import { renderPlayerChip } from "../renderers/shared-renderers.js";
 import { escapeHtml } from "../utils.js";
 
 export const rankingSnapshotCardComponent = {
@@ -17,8 +18,9 @@ export const rankingSnapshotCardComponent = {
         .map(
           (entry, index) => `
             <li class="list-group-item d-flex justify-content-between align-items-center gap-3">
-              <div>
-                <strong>${index + 1}.</strong> ${escapeHtml(entry.name)}
+              <div class="d-flex align-items-center gap-2">
+                <strong>${index + 1}.</strong>
+                ${renderPlayerChip(tournament, entry.id, "standings", `standing-${index}`, getPlayerName, false)}
               </div>
               <div class="d-flex align-items-center gap-2 text-end">
                 <span class="badge bg-primary-subtle text-primary-emphasis">${t("points") || "Points"}: ${Number(entry.score).toFixed(1)}</span>
@@ -42,8 +44,10 @@ export const rankingSnapshotCardComponent = {
     const rows = tournament.rankingGroups
       .filter((group) => group.length > 0)
       .map((group, index) => {
-        const players = group.map((playerId) => escapeHtml(getPlayerName(tournament, playerId))).join(", ");
-        return `<li class="list-group-item"><strong>${index + 1}.</strong> ${players}</li>`;
+        const players = group
+          .map((playerId) => renderPlayerChip(tournament, playerId, "standings", `rank-${index}`, getPlayerName, false))
+          .join("");
+        return `<li class="list-group-item"><strong>${index + 1}.</strong> <span class="player-chip-list">${players}</span></li>`;
       })
       .join("");
 
