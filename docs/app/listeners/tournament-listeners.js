@@ -31,6 +31,7 @@ export function attachTournamentListeners({
   notify,
   openHomeView,
   getCurrentTournament,
+  openConfirmDialog,
 }) {
   const tournament = getCurrentTournament();
   if (!tournament) {
@@ -78,11 +79,15 @@ export function attachTournamentListeners({
     }
 
     document.getElementById("back-to-tournament")?.addEventListener("click", () => {
-      if (!window.confirm(t("confirmDiscardDraft"))) {
-        return;
-      }
-      commitTournamentChange(tournament, saveState, render, () => {
-        tournament.currentRoundDraft = null;
+      openConfirmDialog({
+        title: t("backToTournament"),
+        message: t("confirmDiscardDraft"),
+        confirmLabel: t("backToTournament"),
+        onConfirm: () => {
+          commitTournamentChange(tournament, saveState, render, () => {
+            tournament.currentRoundDraft = null;
+          });
+        },
       });
     });
 
@@ -196,12 +201,16 @@ export function attachTournamentListeners({
     });
 
     document.getElementById("back-to-pairing")?.addEventListener("click", () => {
-      if (!window.confirm(t("confirmDiscardDraft"))) {
-        return;
-      }
-      const draft = tournament.currentRoundDraft;
-      commitTournamentChange(tournament, saveState, render, () => {
-        draft.phase = "pairing";
+      openConfirmDialog({
+        title: t("backToPairing"),
+        message: t("confirmDiscardDraft"),
+        confirmLabel: t("backToPairing"),
+        onConfirm: () => {
+          const draft = tournament.currentRoundDraft;
+          commitTournamentChange(tournament, saveState, render, () => {
+            draft.phase = "pairing";
+          });
+        },
       });
     });
 
@@ -237,13 +246,17 @@ export function attachTournamentListeners({
     attachRankingDnD(tournament, { saveState, render });
 
     document.getElementById("back-to-pairing")?.addEventListener("click", () => {
-      if (!window.confirm(t("confirmDiscardDraft"))) {
-        return;
-      }
-      const draft = tournament.currentRoundDraft;
-      commitTournamentChange(tournament, saveState, render, () => {
-        draft.phase = "pairing";
-        normalizeDraftRanking(tournament);
+      openConfirmDialog({
+        title: t("backToPairing"),
+        message: t("confirmDiscardDraft"),
+        confirmLabel: t("backToPairing"),
+        onConfirm: () => {
+          const draft = tournament.currentRoundDraft;
+          commitTournamentChange(tournament, saveState, render, () => {
+            draft.phase = "pairing";
+            normalizeDraftRanking(tournament);
+          });
+        },
       });
     });
 

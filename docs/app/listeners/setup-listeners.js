@@ -17,6 +17,7 @@ export function attachSetupListeners({
   openTournamentView,
   selectTournament,
   getTournamentById,
+  openConfirmDialog,
 }) {
   document.getElementById("cancel-setup")?.addEventListener("click", () => {
     if (uiState.setupReturnView === "tournament" && state.selectedTournamentId) {
@@ -80,9 +81,28 @@ export function attachSetupListeners({
       }
       const resetRounds = needsRoundReset(current, { name, playerNames });
       if (resetRounds && (current.rounds.length > 0 || current.currentRoundDraft)) {
-        if (!window.confirm(t("confirmSetupChange"))) {
-          return;
-        }
+        openConfirmDialog({
+          title: t("setupTitleEdit"),
+          message: t("confirmSetupChange"),
+          confirmLabel: t("updateTournament"),
+          onConfirm: () => {
+            const updated = applyTournamentEdits(
+              current,
+              { name, playerNames },
+              { resetRounds, tournamentType: selectedTournamentType, swissSettings }
+            );
+            state.tournaments = state.tournaments.map((item) => (item.id === updated.id ? updated : item));
+            selectTournament(updated.id);
+            if (uiState.setupReturnView === "tournament") {
+              uiState.view = "tournament";
+            } else {
+              openHomeView();
+            }
+            saveState();
+            render();
+          },
+        });
+        return;
       }
       const updated = applyTournamentEdits(
         current,

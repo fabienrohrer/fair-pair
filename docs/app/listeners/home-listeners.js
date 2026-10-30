@@ -9,20 +9,25 @@ export function attachHomeListeners({
   openSetupView,
   openTournamentView,
   selectTournament,
+  openConfirmDialog,
 }) {
   document.getElementById("add-tournament")?.addEventListener("click", () => {
     openSetupView("create");
     render();
   });
   document.getElementById("reset-all")?.addEventListener("click", () => {
-    if (!window.confirm(t("confirmResetAll"))) {
-      return;
-    }
-    state.tournaments = [];
-    selectTournament(null);
-    openHomeView();
-    saveState();
-    render();
+    openConfirmDialog({
+      title: t("resetAll"),
+      message: t("confirmResetAll"),
+      confirmLabel: t("resetAll"),
+      onConfirm: () => {
+        state.tournaments = [];
+        selectTournament(null);
+        openHomeView();
+        saveState();
+        render();
+      },
+    });
   });
 
   document.querySelectorAll(".tournament-tile-select").forEach((button) => {
@@ -45,18 +50,22 @@ export function attachHomeListeners({
   document.querySelectorAll(".delete-tournament").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (!window.confirm(t("confirmDeleteTournament"))) {
-        return;
-      }
-      const updated = removeTournamentFromCollection(
-        state.tournaments,
-        button.dataset.id,
-        state.selectedTournamentId
-      );
-      state.tournaments = updated.tournaments;
-      selectTournament(updated.selectedTournamentId);
-      saveState();
-      render();
+      openConfirmDialog({
+        title: t("deleteTournament"),
+        message: t("confirmDeleteTournament"),
+        confirmLabel: t("deleteTournament"),
+        onConfirm: () => {
+          const updated = removeTournamentFromCollection(
+            state.tournaments,
+            button.dataset.id,
+            state.selectedTournamentId
+          );
+          state.tournaments = updated.tournaments;
+          selectTournament(updated.selectedTournamentId);
+          saveState();
+          render();
+        },
+      });
     });
   });
 }

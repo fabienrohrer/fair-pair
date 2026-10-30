@@ -13,6 +13,7 @@ import { homeEmptyStateComponent } from "./components/home-empty-state-component
 import { homeHeroBannerComponent } from "./components/home-hero-banner-component.js";
 import { homeActionsToolbarComponent } from "./components/home-actions-toolbar-component.js";
 import { notificationListComponent } from "./components/notification-list-component.js";
+import { confirmDialogComponent } from "./components/confirm-dialog-component.js";
 import { setupHeaderComponent } from "./components/setup-header-component.js";
 import { setupSwissSettingsComponent } from "./components/setup-swiss-settings-component.js";
 import { setupTypePanelComponent } from "./components/setup-type-panel-component.js";
@@ -35,6 +36,7 @@ const uiState = {
   setupSwissConfig: normalizeSwissSettings(),
   setupReturnView: "home",
   notifications: [],
+  confirmDialog: null,
 };
 
 function loadState() {
@@ -142,6 +144,25 @@ function notify(message, options = {}) {
     }, autoDismissMs);
   }
 
+  render();
+}
+
+function openConfirmDialog({ title, message, confirmLabel, onConfirm = () => {} }) {
+  uiState.confirmDialog = {
+    title,
+    message,
+    confirmLabel,
+    cancelLabel: t("cancel"),
+    onConfirm,
+  };
+  render();
+}
+
+function closeConfirmDialog() {
+  if (!uiState.confirmDialog) {
+    return;
+  }
+  uiState.confirmDialog = null;
   render();
 }
 
@@ -261,6 +282,15 @@ function render() {
     key: "main",
     props: { uiState, t, requestRender: render },
   });
+  const confirmDialogContent = uiState.confirmDialog
+    ? renderComponent(confirmDialogComponent, {
+        key: "main-confirm-dialog",
+        props: {
+          ...uiState.confirmDialog,
+          onClose: closeConfirmDialog,
+        },
+      })
+    : "";
   const appFooterPanel = renderComponent(appFooterPanelComponent, {
     key: "main",
   });
@@ -269,6 +299,7 @@ function render() {
     ${appHeader}
     ${notificationList}
     ${viewContent}
+    ${confirmDialogContent}
     ${appFooterPanel}
   `;
 
@@ -286,6 +317,7 @@ function render() {
       openTournamentView,
       selectTournament,
       getTournamentById,
+      openConfirmDialog,
     });
   } else if (uiState.view === "tournament") {
     attachTournamentListeners({
@@ -295,6 +327,7 @@ function render() {
       notify,
       openHomeView,
       getCurrentTournament,
+      openConfirmDialog,
     });
   } else {
     attachHomeListeners({
@@ -306,6 +339,7 @@ function render() {
       openSetupView,
       openTournamentView,
       selectTournament,
+      openConfirmDialog,
     });
   }
 }
