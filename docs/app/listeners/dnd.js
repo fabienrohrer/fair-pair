@@ -1,9 +1,11 @@
 import {
   assignPlayerToPairingTarget,
   assignPlayerToRankingGroup,
+  insertPlayerIntoRankingDraft,
   removePlayerFromRankingDraft,
   touchTournament,
 } from "./shared.js";
+import { currentPlayerIds } from "../renderers/shared-renderers.js";
 
 function attachPlayerDragAndDrop({
   dragType,
@@ -12,9 +14,32 @@ function attachPlayerDragAndDrop({
 }) {
   const activeTouchDragClass = "fp-touch-drag-active";
   const activeDropTargetClass = "fp-drop-target-active";
+  let activeDesktopDropZone = null;
+  let activeDesktopDragType = null;
+  let activeDesktopPlayerId = null;
   const touchMoveOptions = { passive: false };
   const preventTouchScroll = (moveEvent) => {
     moveEvent.preventDefault();
+  };
+
+  const clearActiveDesktopDropZone = () => {
+    if (!activeDesktopDropZone) {
+      return;
+    }
+    activeDesktopDropZone.classList.remove(activeDropTargetClass);
+    activeDesktopDropZone = null;
+  };
+
+  const setActiveDesktopDropZone = (zone) => {
+    if (zone === activeDesktopDropZone) {
+      return;
+    }
+    clearActiveDesktopDropZone();
+    if (!zone) {
+      return;
+    }
+    zone.classList.add(activeDropTargetClass);
+    activeDesktopDropZone = zone;
   };
 
   const setTouchDragActive = (isActive) => {
@@ -53,19 +78,61 @@ function attachPlayerDragAndDrop({
 
   document.querySelectorAll(`[draggable="true"][data-drag-type="${dragType}"]`).forEach((chip) => {
     chip.addEventListener("dragstart", (event) => {
-      event.dataTransfer.setData("text/plain", chip.dataset.playerId);
+      const playerId = chip.dataset.playerId || "";
+      event.dataTransfer.setData("text/plain", playerId);
       event.dataTransfer.setData("application/x-fairpair-drag-type", dragType);
+      activeDesktopDragType = dragType;
+      activeDesktopPlayerId = playerId;
+    });
+    chip.addEventListener("dragend", () => {
+      activeDesktopDragType = null;
+      activeDesktopPlayerId = null;
+      clearActiveDesktopDropZone();
     });
   });
 
   document.querySelectorAll(dropZoneSelector).forEach((zone) => {
-    zone.addEventListener("dragover", (event) => event.preventDefault());
-    zone.addEventListener("drop", (event) => {
-      event.preventDefault();
-      if (event.dataTransfer.getData("application/x-fairpair-drag-type") !== dragType) {
+    zone.addEventListener("dragenter", (event) => {
+      const dtType = event.dataTransfer?.getData("application/x-fairpair-drag-type");
+      if (dtType && dtType !== dragType) {
         return;
       }
-      applyDrop(event.dataTransfer.getData("text/plain"), zone);
+      if (!dtType && activeDesktopDragType && activeDesktopDragType !== dragType) {
+        return;
+      }
+      setActiveDesktopDropZone(zone);
+    });
+    zone.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      const dtType = event.dataTransfer?.getData("application/x-fairpair-drag-type");
+      if (dtType && dtType !== dragType) {
+        return;
+      }
+      if (!dtType && activeDesktopDragType && activeDesktopDragType !== dragType) {
+        return;
+      }
+      setActiveDesktopDropZone(zone);
+    });
+    zone.addEventListener("dragleave", (event) => {
+      if (event.currentTarget !== event.target) {
+        return;
+      }
+      if (activeDesktopDropZone === zone) {
+        clearActiveDesktopDropZone();
+      }
+    });
+    zone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      clearActiveDesktopDropZone();
+      const dtType = event.dataTransfer.getData("application/x-fairpair-drag-type");
+      const droppedType = dtType || activeDesktopDragType;
+      if (droppedType !== dragType) {
+        return;
+      }
+      const playerId = event.dataTransfer.getData("text/plain") || activeDesktopPlayerId;
+      applyDrop(playerId, zone);
+      activeDesktopDragType = null;
+      activeDesktopPlayerId = null;
     });
   });
 
@@ -189,10 +256,12 @@ export function attachRankingDnD(tournament, { saveState, render }) {
   const draft = tournament.currentRoundDraft;
   attachPlayerDragAndDrop({
     dragType: "ranking",
-    dropZoneSelector: ".ranking-drop-zone, .ranking-unassigned-drop-zone",
+    dropZoneSelector: ".ranking-drop-zone, .ranking-unassigned-drop-zone, .ranking-insert-drop-zone",
     onDropPlayer: (playerId, zone) => {
       if (zone.classList.contains("ranking-unassigned-drop-zone")) {
         removePlayerFromRankingDraft(draft, playerId);
+      } else if (zone.classList.contains("ranking-insert-drop-zone")) {
+        insertPlayerIntoRankingDraft(draft, playerId, Number(zone.dataset.rankInsertIndex), currentPlayerIds(tournament));
       } else {
         assignPlayerToRankingGroup(draft, playerId, Number(zone.dataset.rankIndex));
       }

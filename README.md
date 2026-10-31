@@ -29,7 +29,7 @@ The app supports manual ranking rounds and a Swiss-system mode where pairings fo
   - priority order: any permutation of `avoid rematch`, `minimize ranking gap`, `bye fairness`.
   Pressing **Try** fills table slots automatically according to the active mode rules.
 - **Round start gate:** a round can start only when every player is assigned exactly once across tables + optional BYE.
-- **Manual ranking workflow:** after starting a round, the organizer sets global ranking as vertical ranks with ties (multiple players on the same rank row).
+- **Manual ranking workflow:** after starting a round, the organizer sets global ranking as vertical ranks with ties (multiple players on the same rank row), and can drop players on separator lines to insert them between two ranks.
 - **Ranking reset shortcut:** in ranking view, a dedicated reset action clears current ranking placements without leaving the round flow.
 - **Reversible round navigation:** while a round draft is active, the organizer can go back from ranking to pairing without losing draft data, or return to tournament view (with confirmation to discard the draft).
 - **Safe URL navigation:** top-level views (home, setup, tournament) are reflected in the URL query string so browser back/forward works naturally without exposing round-draft internals that could corrupt tournament flow.

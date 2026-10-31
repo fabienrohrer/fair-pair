@@ -13,23 +13,34 @@ export function renderRankingDraft(tournament, t, getPlayerName) {
   const allRanked = new Set(flattenRankingGroups(normalized));
   const unranked = currentPlayerIds(tournament).filter((playerId) => !allRanked.has(playerId));
 
-  const rows = normalized
-    .map((group, index) => {
-      const players = group
-        .map((playerId) => renderPlayerChip(tournament, playerId, "ranking", `rank-${index}`, getPlayerName))
-        .join("");
-      return `
-        <li class="list-group-item ranking-drop-zone" data-rank-index="${index}">
-          <div class="d-flex gap-2 align-items-start ranking-row-content">
-            <strong class="rank-label">${index + 1}.</strong>
-            <div class="player-chip-list flex-grow-1 ranking-row-slot">
-              ${players || `<span class="drop-empty">${t("dropPlayer")}</span>`}
-            </div>
+  const renderInsertZone = (insertIndex) => `
+    <li
+      class="list-group-item ranking-insert-drop-zone"
+      data-rank-insert-index="${insertIndex}"
+      aria-label="${t("rankingInsertDropHint")}"
+    >
+      <span class="ranking-insert-line" aria-hidden="true"></span>
+    </li>
+  `;
+
+  const rows = [];
+  rows.push(renderInsertZone(0));
+  normalized.forEach((group, index) => {
+    const players = group
+      .map((playerId) => renderPlayerChip(tournament, playerId, "ranking", `rank-${index}`, getPlayerName))
+      .join("");
+    rows.push(`
+      <li class="list-group-item ranking-drop-zone" data-rank-index="${index}">
+        <div class="d-flex gap-2 align-items-start ranking-row-content">
+          <strong class="rank-label">${index + 1}.</strong>
+          <div class="player-chip-list flex-grow-1 ranking-row-slot">
+            ${players || `<span class="drop-empty">${t("dropPlayer")}</span>`}
           </div>
-        </li>
-      `;
-    })
-    .join("");
+        </div>
+      </li>
+    `);
+    rows.push(renderInsertZone(index + 1));
+  });
 
   const roundStageHeader = roundStageBannerComponent.render({
     props: {
@@ -57,7 +68,7 @@ export function renderRankingDraft(tournament, t, getPlayerName) {
             </div>
           </div>
         </div>
-        <ul class="list-group">${rows}</ul>
+        <ul class="list-group">${rows.join("")}</ul>
         <div class="d-flex flex-wrap gap-2 mt-3">
           <button type="button" id="back-to-pairing" class="btn btn-outline-secondary">${t(
             "backToPairing"

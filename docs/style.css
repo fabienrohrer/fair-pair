@@ -499,6 +499,7 @@ main {
 
 .pairing-drop-zone,
 .ranking-drop-zone,
+.ranking-insert-drop-zone,
 .ranking-unassigned-drop-zone {
   border: 1px dashed transparent;
   border-radius: 0.6rem;
@@ -507,6 +508,7 @@ main {
 
 .pairing-drop-zone:hover,
 .ranking-drop-zone:hover,
+.ranking-insert-drop-zone:hover,
 .ranking-unassigned-drop-zone:hover {
   border-color: #3f5e96;
 }
@@ -580,6 +582,29 @@ body.fp-touch-drag-active {
   border-radius: 0.55rem;
   background: rgba(11, 18, 32, 0.2);
   padding: 0.4rem 0.5rem;
+}
+
+.ranking-insert-drop-zone {
+  min-height: 1.75rem;
+  padding: 0.55rem 0.75rem;
+  border-width: 1px;
+  background: transparent;
+}
+
+.ranking-insert-line {
+  display: block;
+  width: 100%;
+  border-top: 2px dashed rgba(141, 166, 224, 0.55);
+}
+
+.ranking-insert-drop-zone.fp-drop-target-active .ranking-insert-line,
+.ranking-insert-drop-zone:hover .ranking-insert-line {
+  border-top-color: #8fb0ff;
+}
+
+.ranking-insert-drop-zone.fp-drop-target-active,
+.ranking-insert-drop-zone:hover {
+  background: rgba(91, 140, 255, 0.08);
 }
 
 #ranking-list .draggable-player.dragging {

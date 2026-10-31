@@ -55,6 +55,25 @@ export function assignPlayerToRankingGroup(draft, playerId, targetRankIndex) {
   draft.rankingGroups[targetRankIndex].push(playerId);
 }
 
+export function insertPlayerIntoRankingDraft(draft, playerId, targetRankIndex, playerIds) {
+  const maxGroups = playerIds.length;
+  if (targetRankIndex < 0 || targetRankIndex > maxGroups) {
+    return;
+  }
+
+  const compactGroups = normalizeRankingGroups(draft.rankingGroups, playerIds)
+    .map((group) => group.filter((id) => id !== playerId))
+    .filter((group) => group.length > 0);
+
+  const insertIndex = Math.min(targetRankIndex, compactGroups.length);
+  compactGroups.splice(insertIndex, 0, [playerId]);
+
+  while (compactGroups.length < maxGroups) {
+    compactGroups.push([]);
+  }
+  draft.rankingGroups = compactGroups;
+}
+
 export function normalizeDraftRanking(tournament) {
   const draft = tournament.currentRoundDraft;
   const ids = currentPlayerIds(tournament);

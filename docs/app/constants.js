@@ -97,6 +97,7 @@ export const messages = {
     startRound: "Start round",
     rankingHelp:
       "Set the global ranking by drag-and-drop. Players on the same row are tied (draw).",
+    rankingInsertDropHint: "Drop here to insert a player between two ranks.",
     resetRanking: "Reset ranking",
     finishRound: "Save round",
     nextStepResults: "Enter results",
@@ -212,6 +213,7 @@ export const messages = {
     startRound: "Démarrer le round",
     rankingHelp:
       "Définissez le classement global en glisser-déposer. Les joueurs sur la même ligne sont ex aequo.",
+    rankingInsertDropHint: "Déposez ici pour insérer un joueur entre deux rangs.",
     resetRanking: "Réinitialiser le classement",
     finishRound: "Enregistrer le round",
     nextStepResults: "Saisir les résultats",
