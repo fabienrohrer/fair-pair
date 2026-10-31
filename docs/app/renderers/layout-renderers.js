@@ -6,7 +6,15 @@ export function renderAppBar({ t, language }) {
       <div class="container-fluid px-0">
         <div class="d-flex align-items-center justify-content-between w-100 gap-3">
           <div class="d-flex align-items-center gap-3">
-            <img class="brand-logo appbar-logo" src="./fair-pair-logo.svg" alt="Fair Pair logo" />
+            <button
+              type="button"
+              class="brand-home-link"
+              data-nav-home
+              aria-label="${t("backToHome")}"
+              title="${t("backToHome")}"
+            >
+              <img class="brand-logo appbar-logo" src="./fair-pair-logo.svg" alt="Fair Pair logo" />
+            </button>
           </div>
           <div class="d-flex align-items-center gap-2 ms-auto">
             <i class="bi bi-globe2 lang-icon" aria-hidden="true"></i>

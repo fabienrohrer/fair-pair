@@ -203,6 +203,19 @@ main {
   width: auto;
 }
 
+.brand-home-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.brand-home-link:focus-visible {
+  outline: 2px solid var(--fp-primary);
+  outline-offset: 0.35rem;
+  border-radius: 0.6rem;
+}
+
 .appbar-logo {
   max-width: min(440px, 52vw);
   filter: drop-shadow(0 0.35rem 0.8rem rgb(122 162 255 / 22%));

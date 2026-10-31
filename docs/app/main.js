@@ -45,6 +45,9 @@ const uiState = {
   notifications: [],
   confirmDialog: null,
 };
+const HOME_ROUTE = { view: "home" };
+let routeSyncMode = "replace";
+let lastRouteKey = "";
 
 function loadState() {
   const defaultLanguage = detectDefaultLanguage();
@@ -112,6 +115,144 @@ function openSetupView(mode, tournamentId = null, returnView = "home", tournamen
 function openTournamentView(tournamentId) {
   selectTournament(tournamentId);
   uiState.view = "tournament";
+}
+
+function queueRouteSync(mode) {
+  routeSyncMode = mode;
+}
+
+function normalizeRouteReturnView(value) {
+  return value === "tournament" ? "tournament" : "home";
+}
+
+function getRouteFromUiState() {
+  if (uiState.view === "setup") {
+    if (uiState.setupMode === "edit" && getTournamentById(uiState.setupTournamentId)) {
+      return {
+        view: "setup",
+        mode: "edit",
+        tournamentId: uiState.setupTournamentId,
+        returnView: normalizeRouteReturnView(uiState.setupReturnView),
+      };
+    }
+    return {
+      view: "setup",
+      mode: "create",
+      returnView: normalizeRouteReturnView(uiState.setupReturnView),
+    };
+  }
+
+  if (uiState.view === "tournament" && getTournamentById(state.selectedTournamentId)) {
+    return { view: "tournament", tournamentId: state.selectedTournamentId };
+  }
+
+  return HOME_ROUTE;
+}
+
+function buildUrlFromRoute(route) {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.searchParams.set("view", route.view);
+
+  if (route.view === "tournament" && route.tournamentId) {
+    url.searchParams.set("tournamentId", route.tournamentId);
+  }
+
+  if (route.view === "setup") {
+    url.searchParams.set("mode", route.mode === "edit" ? "edit" : "create");
+    if (route.mode === "edit" && route.tournamentId) {
+      url.searchParams.set("tournamentId", route.tournamentId);
+    }
+    if (route.returnView === "tournament") {
+      url.searchParams.set("returnView", "tournament");
+    }
+  }
+
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function parseRouteFromLocation() {
+  const params = new URLSearchParams(window.location.search);
+  const view = params.get("view");
+
+  if (view === "tournament") {
+    return {
+      view: "tournament",
+      tournamentId: params.get("tournamentId"),
+    };
+  }
+
+  if (view === "setup") {
+    const mode = params.get("mode") === "edit" ? "edit" : "create";
+    return {
+      view: "setup",
+      mode,
+      tournamentId: params.get("tournamentId"),
+      returnView: normalizeRouteReturnView(params.get("returnView")),
+    };
+  }
+
+  return HOME_ROUTE;
+}
+
+function applyRoute(route) {
+  if (route.view === "tournament") {
+    const tournament = getTournamentById(route.tournamentId);
+    if (!tournament) {
+      return false;
+    }
+    openTournamentView(tournament.id);
+    return true;
+  }
+
+  if (route.view === "setup") {
+    if (route.mode === "edit") {
+      const tournament = getTournamentById(route.tournamentId);
+      if (!tournament) {
+        return false;
+      }
+      selectTournament(tournament.id);
+      openSetupView(
+        "edit",
+        tournament.id,
+        normalizeRouteReturnView(route.returnView),
+        tournament.tournamentType || "manual",
+        tournament.swissSettings
+      );
+      return true;
+    }
+
+    openSetupView("create", null, normalizeRouteReturnView(route.returnView));
+    return true;
+  }
+
+  openHomeView();
+  return true;
+}
+
+function syncRouteWithHistory() {
+  const route = getRouteFromUiState();
+  const routeKey = JSON.stringify(route);
+  if (routeKey === lastRouteKey) {
+    routeSyncMode = null;
+    return;
+  }
+
+  if (routeSyncMode === "skip") {
+    lastRouteKey = routeKey;
+    routeSyncMode = null;
+    return;
+  }
+
+  const nextUrl = buildUrlFromRoute(route);
+  if (routeSyncMode === "replace") {
+    window.history.replaceState(route, "", nextUrl);
+  } else {
+    window.history.pushState(route, "", nextUrl);
+  }
+
+  lastRouteKey = routeKey;
+  routeSyncMode = null;
 }
 
 function getSetupSwissViewModel() {
@@ -279,6 +420,10 @@ function render() {
     props: {
       t,
       language: state.language,
+      onHomeRequest: () => {
+        openHomeView();
+        render();
+      },
       onLanguageChange: (nextLanguage) => {
         if (state.language === nextLanguage) {
           return;
@@ -315,6 +460,7 @@ function render() {
   `;
 
   bindRenderedComponents();
+  syncRouteWithHistory();
   attachGlobalListeners({ dismissNotification });
   if (uiState.view === "setup") {
     attachSetupListeners({
@@ -357,6 +503,21 @@ function render() {
 
 export function initApp() {
   selectTournament(state.selectedTournamentId);
+  const routeApplied = applyRoute(parseRouteFromLocation());
+  if (!routeApplied) {
+    openHomeView();
+  }
+  window.addEventListener("popstate", () => {
+    const didApplyRoute = applyRoute(parseRouteFromLocation());
+    if (!didApplyRoute) {
+      openHomeView();
+      queueRouteSync("replace");
+    } else {
+      queueRouteSync("skip");
+    }
+    render();
+  });
   saveState();
+  queueRouteSync("replace");
   render();
 }

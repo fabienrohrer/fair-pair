@@ -32,6 +32,7 @@ The app supports manual ranking rounds and a Swiss-system mode where pairings fo
 - **Manual ranking workflow:** after starting a round, the organizer sets global ranking as vertical ranks with ties (multiple players on the same rank row).
 - **Ranking reset shortcut:** in ranking view, a dedicated reset action clears current ranking placements without leaving the round flow.
 - **Reversible round navigation:** while a round draft is active, the organizer can go back from ranking to pairing without losing draft data, or return to tournament view (with confirmation to discard the draft).
+- **Safe URL navigation:** top-level views (home, setup, tournament) are reflected in the URL query string so browser back/forward works naturally without exposing round-draft internals that could corrupt tournament flow.
 - **Clear round context:** pairing and ranking screens prominently display the current round number and active step.
 - **Swiss score tracking:** Swiss tournaments store points and expose the current standings with score and Buchholz information.
 - **Automatic persistence:** complete app state is stored in `localStorage` after every change.

@@ -6,6 +6,9 @@ export const appHeaderComponent = {
     return renderAppBar({ t: props.t, language: props.language });
   },
   bind({ host, props }) {
+    host.querySelector("[data-nav-home]")?.addEventListener("click", () => {
+      props.onHomeRequest();
+    });
     host.querySelectorAll(".lang-btn").forEach((button) => {
       button.addEventListener("click", () => {
         const nextLanguage = button.dataset.lang === "fr" ? "fr" : "en";
