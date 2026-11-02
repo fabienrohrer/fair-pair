@@ -21,6 +21,28 @@ function attachPlayerDragAndDrop({
   const preventTouchScroll = (moveEvent) => {
     moveEvent.preventDefault();
   };
+  const autoScrollMargin = 110;
+  const autoScrollSpeed = 18;
+
+  const handleAutoScroll = (clientY) => {
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!viewportHeight) {
+      return;
+    }
+
+    if (clientY <= autoScrollMargin) {
+      const distance = autoScrollMargin - clientY;
+      const step = Math.max(6, (distance / autoScrollMargin) * autoScrollSpeed);
+      window.scrollBy({ top: -step, left: 0 });
+      return;
+    }
+
+    if (clientY >= viewportHeight - autoScrollMargin) {
+      const distance = clientY - (viewportHeight - autoScrollMargin);
+      const step = Math.max(6, (distance / autoScrollMargin) * autoScrollSpeed);
+      window.scrollBy({ top: step, left: 0 });
+    }
+  };
 
   const clearActiveDesktopDropZone = () => {
     if (!activeDesktopDropZone) {
@@ -76,6 +98,18 @@ function attachPlayerDragAndDrop({
     ghost.style.top = `${clientY}px`;
   };
 
+  const handleDesktopDragover = (event) => {
+    if (activeDesktopDragType !== dragType) {
+      return;
+    }
+    if (typeof event.clientY !== "number") {
+      return;
+    }
+    handleAutoScroll(event.clientY);
+  };
+
+  document.addEventListener("dragover", handleDesktopDragover);
+
   document.querySelectorAll(`[draggable="true"][data-drag-type="${dragType}"]`).forEach((chip) => {
     chip.addEventListener("dragstart", (event) => {
       const playerId = chip.dataset.playerId || "";
@@ -88,6 +122,7 @@ function attachPlayerDragAndDrop({
       activeDesktopDragType = null;
       activeDesktopPlayerId = null;
       clearActiveDesktopDropZone();
+      document.removeEventListener("dragover", handleDesktopDragover);
     });
   });
 
@@ -189,6 +224,7 @@ function attachPlayerDragAndDrop({
             return;
           }
           moveEvent.preventDefault();
+          handleAutoScroll(moveEvent.clientY);
           moveTouchGhost(ghost, moveEvent.clientX, moveEvent.clientY);
           updateDropTargetFromPoint(moveEvent.clientX, moveEvent.clientY);
         };
